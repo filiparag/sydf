@@ -43,7 +43,6 @@ function init {
 			echo "sydf is already configured to use this directory"
 		else
 			echo "sydf is configured to use another directory"
-			echo "run 'sydf unhook' to unmanage files"
 		fi
 	else
 		echo $DIR > $SYDFCONFIG
@@ -130,7 +129,7 @@ function remove {
 function cleanup {
 	
 	local file
-	for file in `find $SYDFDIR/$1  -maxdepth 1 ! -path $SYDFDIR/$1 -printf "$1/%P\n"`; do
+	for file in `find $SYDFDIR/$1  -maxdepth 1 ! -path $SYDFDIR/$1 ! -path $SYDFTRACKER -printf "$1/%P\n"`; do
 		
 		if [ ! -L /$file ]; then
 			if [ -z "`ls -A $SYDFDIR/$file`" ]; then
@@ -149,24 +148,54 @@ function cleanup {
 
 function list {
 
-	find $SYDFDIR ! -path $SYDFDIR -printf "$1%P\n"; 
+	find $SYDFDIR ! -path $SYDFDIR ! -path $SYDFTRACKER -printf "$1%P\n"; 
 
 }
 
+function snapshot {
 
+	RANDSTR=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32 ; echo ''`
+	TMPDIR=/tmp/sydf/$RANDSTR
+	mkdir -p $TMPDIR
 
-function unhook {
+	cp -rp $SYDFDIR/* $TMPDIR
+	cp -rp $SYDFTRACKER $TMPDIR
+
+	echo $TMPDIR
+
+}
+
+function hook {
+
+	echo
+
+}
+
+function unhook_ {
 
 	local file
-	for file in `find $SYDFDIR/$1  -maxdepth 1 ! -path $SYDFDIR/$1 -printf "$1/%P\n"`; do
+	for file in `find $SYDFDIR/$1  -maxdepth 1 ! -path $SYDFDIR/$1 ! -path $SYDFTRACKER -printf "$1/%P\n"`; do
 		
 		if [ -L /$file ]; then
 			remove /$file
 		else
-			unhook $file
+			unhook_ $file
 		fi
 
 	done
+
+}
+
+function unhook {
+
+	SNAPSHOT=`snapshot`
+
+	unhook_
+
+	mv $SNAPSHOT/* $SYDFDIR
+
+	rm $SNAPSHOT/.sydf
+	rmdir $SNAPSHOT
 
 }
 
@@ -213,9 +242,11 @@ case $1 in
 	cleanup)
 		cleanup;
 		;;
+	snapshot)
+		snapshot;
+		;;
 	unhook)
 		unhook;
-		rm $SYDFCONFIG;
 		;;
 	*)
 		help;
