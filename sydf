@@ -73,7 +73,66 @@ function add {
 
 }
 
+function remove {
 
+	if [[ -z "${@}" ]]; then
+		echo "no files selected to remove"
+	fi
+
+	for file in ${@}; do
+		
+		FILEPATH=`path $file`
+		FILE=${FILEPATH:1}
+		DIR=`dirname $FILE`
+
+		if [ -f $SYDFDIR/$FILE ]; then
+			
+			rm $FILEPATH
+			mv $SYDFDIR/$FILE $FILEPATH
+
+		elif [ -d $SYDFDIR/$FILE ]; then
+			
+			if [ -L $FILEPATH ]; then
+				
+				rm $FILEPATH
+				mv $SYDFDIR/$FILE $FILEPATH
+
+			else
+				
+				for link in `find $FILEPATH -type l`; do
+					remove $link
+				done
+
+			fi
+
+		else
+			echo "'$file' is not managed using sydf"
+		fi
+	done
+
+	cleanup
+
+}
+
+function cleanup {
+	
+	local file
+	for file in `find $SYDFDIR/$1  -maxdepth 1 ! -path $SYDFDIR/$1 -printf "$1/%P\n"`; do
+		
+		if [ ! -L /$file ]; then
+			if [ -z "`ls -A $SYDFDIR/$file`" ]; then
+				rmdir $SYDFDIR/$file
+			else
+				cleanup $file
+				if [ -z "`ls -A $SYDFDIR/$file`" ]; then
+					rmdir $SYDFDIR/$file
+				fi
+			fi
+		fi
+
+	done
+
+}
 
 function list {
 
