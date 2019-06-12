@@ -7,3 +7,19 @@ if [ -f $SYDFCONFIG ]; then
 else
 	echo "sydf needs to be initialized"
 fi
+
+function path {
+
+	P=""
+	if [ -z $1 ] || [ $1 = "." ]; then
+		P=$PWD
+	elif [ ${1:0:1} = "/" ]; then
+		P=$1
+	else
+		P=$PWD/$1
+	fi
+
+	echo $P
+
+}
+
