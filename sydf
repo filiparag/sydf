@@ -3,9 +3,9 @@
 SYDFCONFIG=$HOME/.config/sydf.conf
 SYDFDIR=""
 SYDFTRACKER=""
-if [ -f $SYDFCONFIG ]; then
-	SYDFDIR=`cat $SYDFCONFIG`
-	SYDFTRACKER=$SYDFDIR/.sydf
+if [ -f "$SYDFCONFIG" ]; then
+	SYDFDIR=`cat "$SYDFCONFIG"`
+	SYDFTRACKER="$SYDFDIR/.sydf"
 elif [ $1 != "init" ]; then
 	echo "sydf needs to be initialized"
 	exit
@@ -14,16 +14,16 @@ fi
 function path {
 
 	P=""
-	if [ -z $1 ] || [ $1 = "." ]; then
-		P=$PWD
-	elif [ ${1:0:1} = "/" ]; then
-		P=$1
+	if [ -z "$1" ] || [ "$1" = "." ]; then
+		P="$PWD"
+	elif [ "${1:0:1}" = "/" ]; then
+		P="$1"
 	else
-		P=$PWD/$1
+		P="$PWD/$1"
 	fi
 
-	if [ ${P: -1} = "/" ]; then
-		P=${P::-1}
+	if [ "${P: -1}" = "/" ]; then
+		P="${P::-1}"
 	fi
 
 	echo $P
@@ -32,22 +32,34 @@ function path {
 
 function init {
 	
-	DIR=`path $1`;
+	DIR=`path "$1"`;
 
-	if [[ -z $1 ]]; then
-		DIR=$HOME/.sydf
+	if [[ -z "$1" ]]; then
+		DIR="$HOME/.sydf"
 	fi
 
-	if [ -e $SYDFCONFIG ]; then
-		if [ $DIR = `cat $SYDFCONFIG` ]; then
+	if [ -e "$SYDFCONFIG" ]; then
+		if [ "$DIR" = `cat "$SYDFCONFIG"` ]; then
 			echo "sydf is already configured to use this directory"
 		else
 			echo "sydf is configured to use another directory"
 		fi
 	else
-		echo $DIR > $SYDFCONFIG
-		touch $DIR/.sydf
-		mkdir -p $DIR
+		echo "$DIR" > "$SYDFCONFIG"
+		mkdir -p "$DIR"
+		touch "$DIR/.sydf"
+	fi
+
+}
+
+function trackdir {
+
+	if [ $1 = "add" ]; then
+		grep -qxF "$2#" "$SYDFTRACKER" || echo "$2#" >> "$SYDFTRACKER"
+	elif [ $1 = "del" ]; then
+		sed -i "/$2\#/d" "$SYDFTRACKER"
+	elif [ $1 = "has" ]; then
+		grep -n "$2#" "$SYDFTRACKER" | cut -f1 -d:
 	fi
 
 }
@@ -58,25 +70,27 @@ function add {
 		echo "no files selected to add"
 	fi
 
-	for file in ${@}; do
+	for file in "${@}"; do
 
-		FILEPATH=`path $file`
-		FILE=${FILEPATH:1}
-		DIR=`dirname $FILE`
+		FILEPATH=`path "$file"`
+		FILE="${FILEPATH:1}"
+		DIR=`dirname "$FILE"`
 
-		if [ -e $SYDFDIR/$FILE ]; then
+		if [ -e "$SYDFDIR/$FILE" ]; then
 			echo "'$file' is already managed using sydf"
-		elif [ -f $FILEPATH ] && [ ! -L $file ]; then
+		elif [ -f "$FILEPATH" ] && [ ! -L "$file" ]; then
 
-			mkdir -p $SYDFDIR/$DIR
-			mv /$FILE $SYDFDIR/$FILE
-			ln -s $SYDFDIR/$FILE /$FILE
+			mkdir -p "$SYDFDIR/$DIR"
+			mv "/$FILE" "$SYDFDIR/$FILE"
+			ln -s "$SYDFDIR/$FILE" "/$FILE"
 
-		elif [ -d $FILEPATH ] && [ ! -L $file ]; then
+		elif [ -d "$FILEPATH" ] && [ ! -L "$file" ]; then
 
-			mkdir -p $SYDFDIR/$DIR
-			mv /$FILE $SYDFDIR/$FILE
-			ln -s $SYDFDIR/$FILE /$FILE
+			mkdir -p "$SYDFDIR/$DIR"
+			mv "/$FILE" "$SYDFDIR/$FILE"
+			ln -s "$SYDFDIR/$FILE" "/$FILE"
+
+			trackdir add "/$FILE"
 
 		else
 			echo "'$file' cannot be added to sydf"
@@ -91,28 +105,28 @@ function remove {
 		echo "no files selected to remove"
 	fi
 
-	for file in ${@}; do
+	for file in "${@}"; do
 		
-		FILEPATH=`path $file`
-		FILE=${FILEPATH:1}
-		DIR=`dirname $FILE`
+		FILEPATH=`path "$file"`
+		FILE="${FILEPATH:1}"
+		DIR=`dirname "$FILE"`
 
-		if [ -f $SYDFDIR/$FILE ]; then
+		if [ -f "$SYDFDIR/$FILE" ]; then
 			
-			rm $FILEPATH
-			mv $SYDFDIR/$FILE $FILEPATH
+			rm "$FILEPATH"
+			mv "$SYDFDIR/$FILE" "$FILEPATH"
 
-		elif [ -d $SYDFDIR/$FILE ]; then
+		elif [ -d "$SYDFDIR/$FILE" ]; then
 			
-			if [ -L $FILEPATH ]; then
+			if [ -L "$FILEPATH" ]; then
 				
-				rm $FILEPATH
-				mv $SYDFDIR/$FILE $FILEPATH
+				rm "$FILEPATH"
+				mv "$SYDFDIR/$FILE" "$FILEPATH"
 
 			else
 				
-				for link in `find $FILEPATH -type l`; do
-					remove $link
+				for link in `find "$FILEPATH" -type l`; do
+					remove "$link"
 				done
 
 			fi
@@ -129,15 +143,15 @@ function remove {
 function cleanup {
 	
 	local file
-	for file in `find $SYDFDIR/$1  -maxdepth 1 ! -path $SYDFDIR/$1 ! -path $SYDFTRACKER -printf "$1/%P\n"`; do
+	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
 		
 		if [ ! -L /$file ]; then
 			if [ -z "`ls -A $SYDFDIR/$file`" ]; then
-				rmdir $SYDFDIR/$file
+				rmdir "$SYDFDIR/$file"
 			else
 				cleanup $file
 				if [ -z "`ls -A $SYDFDIR/$file`" ]; then
-					rmdir $SYDFDIR/$file
+					rmdir "$SYDFDIR/$file"
 				fi
 			fi
 		fi
@@ -148,38 +162,53 @@ function cleanup {
 
 function list {
 
-	find $SYDFDIR ! -path $SYDFDIR ! -path $SYDFTRACKER -printf "$1%P\n"; 
+	find "$SYDFDIR" ! -path "$SYDFDIR" ! -path "$SYDFTRACKER" -printf "$1%P\n"; 
 
 }
 
 function snapshot {
 
 	RANDSTR=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32 ; echo ''`
-	TMPDIR=/tmp/sydf/$RANDSTR
+	TMPDIR="/tmp/sydf/$RANDSTR"
 	mkdir -p $TMPDIR
 
-	cp -rp $SYDFDIR/* $TMPDIR
-	cp -rp $SYDFTRACKER $TMPDIR
+	cp -rp "$SYDFDIR/"* "$TMPDIR"
+	cp -rp "$SYDFTRACKER" "$TMPDIR"
 
-	echo $TMPDIR
+	echo "$TMPDIR"
 
 }
 
 function hook {
 
-	echo
+	local file
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
+		
+		FILEPATH="$SYDFDIR$file"
+		DIR=`dirname "$FILEPATH"`
+
+		if [ -f $FILEPATH ]; then
+			mkdir -p "$DIR"
+			ln -s "$FILEPATH" "$file"
+		elif [ -z `trackdir has "$file"` ]; then
+			hook "$file"
+		else
+			ln -s "$FILEPATH" "$file"
+		fi
+
+	done
 
 }
 
 function unhook_ {
 
 	local file
-	for file in `find $SYDFDIR/$1  -maxdepth 1 ! -path $SYDFDIR/$1 ! -path $SYDFTRACKER -printf "$1/%P\n"`; do
+	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
 		
-		if [ -L /$file ]; then
-			remove /$file
+		if [ -L "/$file" ]; then
+			remove "/$file"
 		else
-			unhook_ $file
+			unhook_ "$file"
 		fi
 
 	done
@@ -192,7 +221,7 @@ function unhook {
 
 	unhook_
 
-	mv $SNAPSHOT/* $SYDFDIR
+	mv $SNAPSHOT/* "$SYDFDIR"
 
 	rm $SNAPSHOT/.sydf
 	rmdir $SNAPSHOT
@@ -244,6 +273,12 @@ case $1 in
 		;;
 	snapshot)
 		snapshot;
+		;;
+	trackdir)
+		trackdir ${@:2};
+		;;
+	hook)
+		hook;
 		;;
 	unhook)
 		unhook;
