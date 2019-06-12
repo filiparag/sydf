@@ -2,10 +2,13 @@
 
 SYDFCONFIG=$HOME/.config/sydf.conf
 SYDFDIR=""
+SYDFTRACKER=""
 if [ -f $SYDFCONFIG ]; then
 	SYDFDIR=`cat $SYDFCONFIG`
-else
+	SYDFTRACKER=$SYDFDIR/.sydf
+elif [ $1 != "init" ]; then
 	echo "sydf needs to be initialized"
+	exit
 fi
 
 function path {
@@ -19,23 +22,33 @@ function path {
 		P=$PWD/$1
 	fi
 
+	if [ ${P: -1} = "/" ]; then
+		P=${P::-1}
+	fi
+
 	echo $P
 
 }
 
 function init {
 	
-	DIR=`path $1`;	
+	DIR=`path $1`;
+
+	if [[ -z $1 ]]; then
+		DIR=$HOME/.sydf
+	fi
 
 	if [ -e $SYDFCONFIG ]; then
 		if [ $DIR = `cat $SYDFCONFIG` ]; then
 			echo "sydf is already configured to use this directory"
 		else
 			echo "sydf is configured to use another directory"
-			echo "run 'sydf reinit' to reinitialize"
+			echo "run 'sydf unhook' to unmanage files"
 		fi
 	else
 		echo $DIR > $SYDFCONFIG
+		touch $DIR/.sydf
+		mkdir -p $DIR
 	fi
 
 }
@@ -140,6 +153,47 @@ function list {
 
 }
 
+
+
+function unhook {
+
+	local file
+	for file in `find $SYDFDIR/$1  -maxdepth 1 ! -path $SYDFDIR/$1 -printf "$1/%P\n"`; do
+		
+		if [ -L /$file ]; then
+			remove /$file
+		else
+			unhook $file
+		fi
+
+	done
+
+}
+
+function help {
+
+	printf \
+"NAME
+  sydf - symlink your damn files
+
+DESCRIPTION
+  sydf is a system-wide file linker
+
+COMMANDS
+  init
+      Initialize sydf directory for current user
+  add
+      Add files and directories
+  remove
+      Remove files and directories
+  list
+      List all managed files and directories
+  hook
+      Attempts to link all managed files
+  unhook
+      Reverts all symbolic links\n"
+}
+
 case $1 in
 	init)
 		init $2;
@@ -153,10 +207,17 @@ case $1 in
 	list)
 		list /;
 		;;
+	path)
+		path ${@:2};
+		;;
 	cleanup)
 		cleanup;
 		;;
-	path)
-		path ${@:2};
+	unhook)
+		unhook;
+		rm $SYDFCONFIG;
+		;;
+	*)
+		help;
 		;;
 esac
