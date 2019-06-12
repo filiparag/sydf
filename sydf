@@ -23,3 +23,20 @@ function path {
 
 }
 
+function init {
+	
+	DIR=`path $1`;	
+
+	if [ -e $SYDFCONFIG ]; then
+		if [ $DIR = `cat $SYDFCONFIG` ]; then
+			echo "sydf is already configured to use this directory"
+		else
+			echo "sydf is configured to use another directory"
+			echo "run 'sydf reinit' to reinitialize"
+		fi
+	else
+		echo $DIR > $SYDFCONFIG
+	fi
+
+}
+
