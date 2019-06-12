@@ -1,0 +1,9 @@
+#! /bin/env bash
+
+SYDFCONFIG=$HOME/.config/sydf.conf
+SYDFDIR=""
+if [ -f $SYDFCONFIG ]; then
+	SYDFDIR=`cat $SYDFCONFIG`
+else
+	echo "sydf needs to be initialized"
+fi
