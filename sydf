@@ -40,3 +40,64 @@ function init {
 
 }
 
+function add {
+
+	if [[ -z "${@}" ]]; then
+		echo "no files selected to add"
+	fi
+
+	for file in ${@}; do
+
+		FILEPATH=`path $file`
+		FILE=${FILEPATH:1}
+		DIR=`dirname $FILE`
+
+		if [ -e $SYDFDIR/$FILE ]; then
+			echo "'$file' is already managed using sydf"
+		elif [ -f $FILEPATH ] && [ ! -L $file ]; then
+
+			mkdir -p $SYDFDIR/$DIR
+			mv /$FILE $SYDFDIR/$FILE
+			ln -s $SYDFDIR/$FILE /$FILE
+
+		elif [ -d $FILEPATH ] && [ ! -L $file ]; then
+
+			mkdir -p $SYDFDIR/$DIR
+			mv /$FILE $SYDFDIR/$FILE
+			ln -s $SYDFDIR/$FILE /$FILE
+
+		else
+			echo "'$file' cannot be added to sydf"
+		fi
+	done
+
+}
+
+
+
+function list {
+
+	find $SYDFDIR ! -path $SYDFDIR -printf "$1%P\n"; 
+
+}
+
+case $1 in
+	init)
+		init $2;
+		;;
+	add)
+		add ${@:2};
+		;;
+	remove)
+		remove ${@:2};
+		;;
+	list)
+		list /;
+		;;
+	cleanup)
+		cleanup;
+		;;
+	path)
+		path ${@:2};
+		;;
+esac
