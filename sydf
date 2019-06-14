@@ -13,23 +13,9 @@ fi
 
 # PATH
 # Sanitizes received path and converts it to absolute path
-# TODO: add support for paths containing '..' and '.'
 function path {
 
-	P=""
-	if [ -z "$1" ] || [ "$1" = "." ]; then
-		P="$PWD"
-	elif [ "${1:0:1}" = "/" ]; then
-		P="$1"
-	else
-		P="$PWD/$1"
-	fi
-
-	if [ "${P: -1}" = "/" ]; then
-		P="${P::-1}"
-	fi
-
-	echo $P
+	echo `realpath --no-symlinks "$1"`
 
 }
 
