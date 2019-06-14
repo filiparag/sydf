@@ -155,8 +155,7 @@ function remove {
 				
 				rm "$FILEPATH"
 				mv "$SYDFDIR/$FILE" "$FILEPATH"
-				echo "$FILEPATH"
-				trackdir del "/$FILEPATH"
+				trackdir del "$FILEPATH"
 
 			else
 				
@@ -226,18 +225,21 @@ function snapshot {
 # Safely link source to target. If target already exists, user is prompted if 
 # they want to replace it. All replaced files and directories are moved to .old
 # directory inside sydf directory
-# TODO: move files to .old
+# TODO: move files to .old gracefully
 function safelink {
 
 	SOURCE=$1
 	TARGET=$2
 
-	if [ -e $TARGET ] && 
-	   [ `prompt "'$TARGET' exists, replace?" Yn` = "no" ]; then
-		return
-	else
-		echo ln -s "$SOURCE" "$TARGET"
+	if [ -e $TARGET ]; then
+		if [ `prompt "'$TARGET' exists, replace?" Yn` = "no" ]; then
+			return
+		else
+			mkdir -p "$SYDFDIR/.old`dirname \"$TARGET\"`"
+			mv "$TARGET" "$SYDFDIR/.old$TARGET"
+		fi
 	fi
+	ln -s "$SOURCE" "$TARGET"
 
 }
 
@@ -254,15 +256,19 @@ function hook {
 		FILEPATH="$SYDFDIR$file"
 		DIR=`dirname "$FILEPATH"`
 
-		if [ -f $FILEPATH ]; then
+		if [ -f $FILEPATH ] && [ -z `trackdir sub "$file"` ]; then
+
 			mkdir -p "$DIR"
-			# check if exists
 			safelink "$FILEPATH" "$file"
+
 		elif [ -z `trackdir has "$file"` ]; then
+
 			hook "$file"
+
 		else
-			# check if exists
+			
 			safelink "$FILEPATH" "$file"
+
 		fi
 
 	done
@@ -275,14 +281,20 @@ function hook {
 # the sydf folder
 function unhook {
 
+	if [ ! -d "$SYDFDIR" ] || [ -z "`ls -A $SYDFDIR -I .sydf`" ]; then
+		return
+	fi
+
 	SNAPSHOT=`snapshot`
 
-	unhook_
+	if [ `unhook_` -gt 0 ]; then
 
-	mv $SNAPSHOT/* "$SYDFDIR"
+		mv $SNAPSHOT/* "$SYDFDIR"
+		mv $SNAPSHOT/.sydf "$SYDFDIR"
 
-	rm $SNAPSHOT/.sydf
-	rmdir $SNAPSHOT
+		rmdir $SNAPSHOT
+
+	fi
 
 }
 
@@ -292,16 +304,25 @@ function unhook {
 function unhook_ {
 
 	local file
+	local count
+	
+	if [ -z $2 ]; then
+		count=0
+	fi
+
 	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" \
 				 ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
 		
 		if [ -L "/$file" ]; then
-			remove "/$file"
+			remove "$file"
+			count=$(( $count + 1 ))
 		else
-			unhook_ "$file"
+			count=`unhook_ "$file" $count`
 		fi
 
 	done
+
+	echo $count
 
 }
 
@@ -323,7 +344,9 @@ function prompt {
 	esac
 
 	while true; do
+
 		read -p "$1 [$YN]: " ANSWER
+
 		case "$ANSWER" in
 			y|Y)
 				echo "yes";
@@ -337,6 +360,7 @@ function prompt {
 					break;
 				fi
 		esac
+
 	done
 
 }
@@ -368,6 +392,7 @@ COMMANDS
 }
 
 case $1 in
+
 	init)
 		init $2;
 		;;
@@ -380,6 +405,14 @@ case $1 in
 	list)
 		list /;
 		;;
+	hook)
+		hook;
+		;;
+	unhook)
+		unhook;
+		;;
+
+	# Debug functions
 	path)
 		path ${@:2};
 		;;
@@ -392,13 +425,8 @@ case $1 in
 	trackdir)
 		trackdir ${@:2};
 		;;
-	hook)
-		hook;
-		;;
-	unhook)
-		unhook;
-		;;
 	*)
 		help;
 		;;
+
 esac
