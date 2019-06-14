@@ -2,9 +2,11 @@
 
 SYDFCONFIG=$HOME/.config/sydf.conf
 SYDFDIR=""
+SYDFOLD=""
 SYDFTRACKER=""
 if [ -f "$SYDFCONFIG" ]; then
 	SYDFDIR=`cat "$SYDFCONFIG"`
+	SYDFOLD="$SYDFDIR/.old"
 	SYDFTRACKER="$SYDFDIR/.sydf"
 elif [[ $1 != "init" ]]; then
 	echo "sydf needs to be initialized"
@@ -51,17 +53,33 @@ function init {
 function trackdir {
 
 	if [ $1 = "add" ]; then
-		grep -qxF "$2#" "$SYDFTRACKER" || echo "$2#" >> "$SYDFTRACKER"
+		grep -qxF ">$2#" "$SYDFTRACKER" || echo ">$2#" >> "$SYDFTRACKER"
 	elif [ $1 = "del" ]; then
-		sed -i "\|$2\#|d" "$SYDFTRACKER"
+		sed -i "\|>$2\#|d" "$SYDFTRACKER"
 	elif [ $1 = "has" ]; then
-		grep -n "$2#" "$SYDFTRACKER" | cut -f1 -d:
+		grep -n ">$2#" "$SYDFTRACKER" | cut -f1 -d:
 	elif [ $1 = "sub" ]; then
-		for dir in `cat $SYDFTRACKER`; do
-			if [[ "$2" == "${dir:0:-1}"* ]]; then
-				echo "${dir:0:-1}"
-			fi
-		done
+		if [ -z `trackdir has "$2"` ]; then
+			for dir in `cat $SYDFTRACKER`; do
+				if [[ ">$2" == "${dir:0:-1}/"* ]]; then
+					echo "${dir:1:-1}"
+					break
+				fi
+			done
+		else
+			echo "$2"
+		fi
+	elif [ $1 = "ign" ]; then
+		if [ `grep -n "!$2#" "$SYDFTRACKER" | cut -f1 -d:` ]; then
+			echo $2
+		else
+			for dir in `cat $SYDFTRACKER`; do
+				if [[ "!$2" == "${dir:0:-1}/"* ]]; then
+					echo "${dir:1:-1}"
+					break
+				fi
+			done
+		fi
 	fi
 
 }
@@ -166,7 +184,7 @@ function cleanup {
 	
 	local file
 	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" \
-				 ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
+				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
 		
 		if [ ! -L /$file ]; then
 			if [ -z "`ls -A $SYDFDIR/$file`" ]; then
@@ -188,7 +206,7 @@ function cleanup {
 function list {
 
 	find "$SYDFDIR" -type f ! -path "$SYDFDIR" ! -path "$SYDFTRACKER" \
-		  -printf "$1%P\n"; 
+		  ! -path "$SYDFOLD" -printf "$1%P\n"; 
 
 }
 
@@ -237,7 +255,7 @@ function hook {
 
 	local file
 	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
-				 ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
+				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
 		
 		FILEPATH="$SYDFDIR$file"
 		DIR=`dirname "$FILEPATH"`
@@ -297,7 +315,7 @@ function unhook_ {
 	fi
 
 	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" \
-				 ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
+				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
 		
 		if [ -L "/$file" ]; then
 			remove "$file"
