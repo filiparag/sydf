@@ -6,11 +6,14 @@ SYDFTRACKER=""
 if [ -f "$SYDFCONFIG" ]; then
 	SYDFDIR=`cat "$SYDFCONFIG"`
 	SYDFTRACKER="$SYDFDIR/.sydf"
-elif [ $1 != "init" ]; then
+elif [[ $1 != "init" ]]; then
 	echo "sydf needs to be initialized"
 	exit
 fi
 
+# PATH
+# Sanitizes received path and converts it to absolute path
+# TODO: add support for paths containing '..' and '.'
 function path {
 
 	P=""
@@ -30,6 +33,9 @@ function path {
 
 }
 
+# INIT
+# Checks whether current user has their sydf directory configured
+# If not, provided path is used and saved into the config file
 function init {
 	
 	DIR=`path "$1"`;
@@ -52,18 +58,31 @@ function init {
 
 }
 
+# TRACKDIR
+# When a directory is linked using syfd, it needs to remember that for future
+# hooks, because in contrary, it would link all files inside recursively.
+# This function provides interface to .sydf directory tracking list file
 function trackdir {
 
 	if [ $1 = "add" ]; then
 		grep -qxF "$2#" "$SYDFTRACKER" || echo "$2#" >> "$SYDFTRACKER"
 	elif [ $1 = "del" ]; then
-		sed -i "/$2\#/d" "$SYDFTRACKER"
+		sed -i "\|$2\#|d" "$SYDFTRACKER"
 	elif [ $1 = "has" ]; then
 		grep -n "$2#" "$SYDFTRACKER" | cut -f1 -d:
+	elif [ $1 = "sub" ]; then
+		for dir in `cat $SYDFTRACKER`; do
+			if [[ "$2" == "${dir:0:-1}"* ]]; then
+				echo "${dir:0:-1}"
+			fi
+		done
 	fi
 
 }
 
+# ADD
+# Moves given file or directory to syfd and symlinks it back to the the original
+# path afterwards. In case of a directory, it gets added to tracking list
 function add {
 
 	if [[ -z "${@}" ]]; then
@@ -99,6 +118,12 @@ function add {
 
 }
 
+# REMOVE
+# Removes the symlink and moves given file or directory from syfd back to 
+# original path. In case of an untracked directory, all children are removed
+# recursively. In case of a file inside linked (tracked) directory, user is
+# prompted if they want optimal restructuring
+# TODO: restructuring
 function remove {
 
 	if [[ -z "${@}" ]]; then
@@ -112,16 +137,26 @@ function remove {
 		DIR=`dirname "$FILE"`
 
 		if [ -f "$SYDFDIR/$FILE" ]; then
+
+			if [ `trackdir sub "$FILEPATH"` ]; then
+				
+				echo "removing file inside linked directory is not supported"
+
+			else
 			
-			rm "$FILEPATH"
-			mv "$SYDFDIR/$FILE" "$FILEPATH"
+				rm "$FILEPATH"
+				mv "$SYDFDIR/$FILE" "$FILEPATH"
+
+			fi
 
 		elif [ -d "$SYDFDIR/$FILE" ]; then
 			
-			if [ -L "$FILEPATH" ]; then
+			if [ `trackdir has "$FILEPATH"` ]; then
 				
 				rm "$FILEPATH"
 				mv "$SYDFDIR/$FILE" "$FILEPATH"
+				echo "$FILEPATH"
+				trackdir del "/$FILEPATH"
 
 			else
 				
@@ -140,10 +175,13 @@ function remove {
 
 }
 
+# CLEANUP
+# Find and remove all unused directories inside sydf folder
 function cleanup {
 	
 	local file
-	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
+	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
 		
 		if [ ! -L /$file ]; then
 			if [ -z "`ls -A $SYDFDIR/$file`" ]; then
@@ -160,16 +198,21 @@ function cleanup {
 
 }
 
+# LIST
+# List all files inside sydf directory
 function list {
 
-	find "$SYDFDIR" ! -path "$SYDFDIR" ! -path "$SYDFTRACKER" -printf "$1%P\n"; 
+	find "$SYDFDIR" -type f ! -path "$SYDFDIR" ! -path "$SYDFTRACKER" \
+		  -printf "$1%P\n"; 
 
 }
 
+# SNAPSHOT
+# Create a snapshot of sydf directory inside /tmp/sydf and return its path
 function snapshot {
 
-	RANDSTR=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32 ; echo ''`
-	TMPDIR="/tmp/sydf/$RANDSTR"
+	RANDSTR=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16 ; echo ''`
+	TMPDIR="/tmp/sydf/snapshot_$RANDSTR"
 	mkdir -p $TMPDIR
 
 	cp -rp "$SYDFDIR/"* "$TMPDIR"
@@ -179,31 +222,55 @@ function snapshot {
 
 }
 
+# HOOK
+# 
 function hook {
 
 	local file
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
 		
 		FILEPATH="$SYDFDIR$file"
 		DIR=`dirname "$FILEPATH"`
 
 		if [ -f $FILEPATH ]; then
 			mkdir -p "$DIR"
-			ln -s "$FILEPATH" "$file"
+			# check if exists
+			safelink "$FILEPATH" "$file"
 		elif [ -z `trackdir has "$file"` ]; then
 			hook "$file"
 		else
-			ln -s "$FILEPATH" "$file"
+			# check if exists
+			safelink "$FILEPATH" "$file"
 		fi
 
 	done
 
 }
 
+# SAFELINK
+# 
+function safelink {
+
+	SOURCE=$1
+	TARGET=$2
+
+	if [ -e $TARGET ] && 
+	   [ `prompt "'$TARGET' exists, replace?" Yn` = "no" ]; then
+		return
+	else
+		echo ln -s "$SOURCE" "$TARGET"
+	fi
+
+}
+
+# UNHOOK_
+# 
 function unhook_ {
 
 	local file
-	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
+	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 ! -path "$SYDFTRACKER" -printf "$1/%P\n"`; do
 		
 		if [ -L "/$file" ]; then
 			remove "/$file"
@@ -215,6 +282,8 @@ function unhook_ {
 
 }
 
+# UNHOOK
+# 
 function unhook {
 
 	SNAPSHOT=`snapshot`
@@ -225,6 +294,42 @@ function unhook {
 
 	rm $SNAPSHOT/.sydf
 	rmdir $SNAPSHOT
+
+}
+
+# PROMPT
+# 
+function prompt {
+
+	YN=""
+	DEFAULT=""
+	case "$2" in
+		Yn)
+			YN="Y/n";
+			DEFAULT="yes";;
+		yN)
+			YN="y/N";
+			DEFAULT="no";;
+		*)
+			YN="y/n";;
+	esac
+
+	while true; do
+		read -p "$1 [$YN]: " ANSWER
+		case "$ANSWER" in
+			y|Y)
+				echo "yes";
+				break;;
+			n|N)
+				echo "no";
+				break;;
+			*)
+				if [ $DEFAULT ]; then
+					echo $DEFAULT;
+					break;
+				fi
+		esac
+	done
 
 }
 
