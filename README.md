@@ -68,7 +68,16 @@ sydf hook
 
 **Unhook**
 
-Unhooking will replace all symbolic links created by _sydf_ with corresponding files and directories. Contents of _sydf_ working directory will stay unaffected by this operation.
+Unhooking will replace all symbolic links created by _sydf_ with corresponding files and directories. Contents of _sydf_'s working directory will stay unaffected by this operation.
 ```sh
 sydf unhook
 ```
+
+**Ignore list**
+
+If you want to have some files inside _sydf_'s working directory ignored by _sydf_, you can add them into the `.sydf` file. _sydf_ will not be able to remove lines containing ignored files, but be wary that the same file is used for directory tracking and it might change over time. Every ignored file rule has to follow this syntax:
+```
+!<DIRECTORY>#
+!<FILE>#
+```
+All ignored paths are relative to the _sydf_'s working directory. Do not leave the trailing slash at the end of directory paths, as it won't work!
