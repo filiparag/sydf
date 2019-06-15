@@ -14,7 +14,7 @@ if [ -f "$SYDFCONFIG" ]; then
 	SYDFIGN=`cat $SYDFTRACKER | grep "!" | sed -Ez "s|!|! -path $PWD/|g; \
 			 s/#//g; s/\n/ /g"`
 
-elif [[ $1 != "init" ]]; then
+elif [[ $1 != "init" ]] && [[ $1 != "help" ]]; then
 
 	echo "sydf needs to be initialized"
 	exit
