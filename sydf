@@ -34,10 +34,12 @@ function path {
 # If not, provided path is used and saved into the config file
 function init {
 	
-	DIR=`path "$1"`;
+	DIR=""
 
 	if [[ -z "$1" ]]; then
 		DIR="$HOME/.sydf"
+	else
+		DIR=`path "$1"`
 	fi
 
 	if [ -e "$SYDFCONFIG" ]; then
@@ -47,8 +49,10 @@ function init {
 			echo "sydf is configured to use another directory"
 		fi
 	else
+		mkdir -p `dirname $SYDFCONFIG`
 		echo "$DIR" > "$SYDFCONFIG"
-		mkdir -p "$DIR"
+		doas mkdir -p "$DIR"
+		doas chown $USER "$DIR"
 		touch "$DIR/.sydf"
 	fi
 
@@ -92,6 +96,21 @@ function trackdir {
 
 }
 
+# DOAS
+# If executing a command as current user is not successful, repeat the same 
+# operation as root using sudo
+function doas {
+
+	COMMAND="$@"
+	ERROR=`$COMMAND 2>&1`
+
+	if [ $? != 0 ] && [ -z `echo "$ERROR" | grep -iqF "permission"` ]; then
+		sudo -p "[sydf] Password for $USER: " $COMMAND
+		# echo "[sudo] $COMMAND"
+	fi
+
+}
+
 # ADD
 # Moves given file or directory to syfd and symlinks it back to the the original
 # path afterwards. In case of a directory, it gets added to tracking list
@@ -111,15 +130,15 @@ function add {
 			echo "'$file' is already managed using sydf"
 		elif [ -f "$FILEPATH" ] && [ ! -L "$file" ]; then
 
-			mkdir -p "$SYDFDIR/$DIR"
-			mv "/$FILE" "$SYDFDIR/$FILE"
-			ln -s "$SYDFDIR/$FILE" "/$FILE"
+			doas mkdir -p "$SYDFDIR/$DIR"
+			doas mv "/$FILE" "$SYDFDIR/$FILE"
+			doas ln -s "$SYDFDIR/$FILE" "/$FILE"
 
 		elif [ -d "$FILEPATH" ] && [ ! -L "$file" ]; then
 
-			mkdir -p "$SYDFDIR/$DIR"
-			mv "/$FILE" "$SYDFDIR/$FILE"
-			ln -s "$SYDFDIR/$FILE" "/$FILE"
+			doas mkdir -p "$SYDFDIR/$DIR"
+			doas mv "/$FILE" "$SYDFDIR/$FILE"
+			doas ln -s "$SYDFDIR/$FILE" "/$FILE"
 
 			trackdir add "/$FILE"
 
@@ -156,8 +175,8 @@ function remove {
 
 			else
 			
-				rm "$FILEPATH"
-				mv "$SYDFDIR/$FILE" "$FILEPATH"
+				doas rm "$FILEPATH"
+				doas mv "$SYDFDIR/$FILE" "$FILEPATH"
 
 			fi
 
@@ -165,9 +184,9 @@ function remove {
 			
 			if [ `trackdir has "$FILEPATH"` ]; then
 				
-				rm "$FILEPATH"
-				mv "$SYDFDIR/$FILE" "$FILEPATH"
-				trackdir del "$FILEPATH"
+				doas rm "$FILEPATH"
+				doas mv "$SYDFDIR/$FILE" "$FILEPATH"
+				doas trackdir del "$FILEPATH"
 
 			else
 				
@@ -196,11 +215,11 @@ function cleanup {
 		
 		if [ ! -L /$file ]; then
 			if [ -z "`ls -A $SYDFDIR/$file`" ]; then
-				rmdir "$SYDFDIR/$file"
+				doas rmdir "$SYDFDIR/$file"
 			else
 				cleanup $file
 				if [ -z "`ls -A $SYDFDIR/$file`" ]; then
-					rmdir "$SYDFDIR/$file"
+					doas rmdir "$SYDFDIR/$file"
 				fi
 			fi
 		fi
@@ -224,10 +243,10 @@ function snapshot {
 
 	RANDSTR=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16 ; echo ''`
 	TMPDIR="/tmp/sydf/snapshot_$RANDSTR"
-	mkdir -p $TMPDIR
+	doas mkdir -p $TMPDIR
 
-	cp -rp "$SYDFDIR/"* "$TMPDIR"
-	cp -rp "$SYDFTRACKER" "$TMPDIR"
+	doas cp -rp "$SYDFDIR/"* "$TMPDIR"
+	doas cp -rp "$SYDFTRACKER" "$TMPDIR"
 
 	echo "$TMPDIR"
 
@@ -247,11 +266,11 @@ function safelink {
 		if [ `prompt "'$TARGET' exists, replace?" Yn` = "no" ]; then
 			return
 		else
-			mkdir -p "$SYDFDIR/.old`dirname \"$TARGET\"`"
-			mv "$TARGET" "$SYDFDIR/.old$TARGET"
+			doas mkdir -p "$SYDFDIR/.old`dirname \"$TARGET\"`"
+			doas mv "$TARGET" "$SYDFDIR/.old$TARGET"
 		fi
 	fi
-	ln -s "$SOURCE" "$TARGET"
+	doas ln -s "$SOURCE" "$TARGET"
 
 }
 
@@ -270,7 +289,7 @@ function hook {
 
 		if [ -f $FILEPATH ] && [ -z `trackdir sub "$file"` ]; then
 
-			mkdir -p "$DIR"
+			doas mkdir -p "$DIR"
 			safelink "$FILEPATH" "$file"
 
 		elif [ -z `trackdir has "$file"` ]; then
@@ -301,10 +320,10 @@ function unhook {
 
 	if [ `unhook_` -gt 0 ]; then
 
-		mv $SNAPSHOT/* "$SYDFDIR"
-		mv $SNAPSHOT/.sydf "$SYDFDIR"
+		doas mv $SNAPSHOT/* "$SYDFDIR"
+		doas mv $SNAPSHOT/.sydf "$SYDFDIR"
 
-		rmdir $SNAPSHOT
+		doas rmdir $SNAPSHOT
 
 	fi
 
@@ -436,6 +455,9 @@ case $1 in
 		;;
 	trackdir)
 		trackdir ${@:2};
+		;;
+	doas)
+		doas ${@:2};
 		;;
 	*)
 		help;
