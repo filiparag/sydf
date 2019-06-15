@@ -1,16 +1,24 @@
 #! /bin/env bash
 
 SYDFCONFIG=$HOME/.config/sydf.conf
+SYDFTRACKER=""
 SYDFDIR=""
 SYDFOLD=""
-SYDFTRACKER=""
+SYDFIGN=""
+
 if [ -f "$SYDFCONFIG" ]; then
+
 	SYDFDIR=`cat "$SYDFCONFIG"`
 	SYDFOLD="$SYDFDIR/.old"
 	SYDFTRACKER="$SYDFDIR/.sydf"
+	SYDFIGN=`cat $SYDFTRACKER | grep "!" | sed -Ez "s|!|! -path $PWD/|g; \
+			 s/#//g; s/\n/ /g"`
+
 elif [[ $1 != "init" ]]; then
+
 	echo "sydf needs to be initialized"
 	exit
+
 fi
 
 # PATH
@@ -163,7 +171,7 @@ function remove {
 
 			else
 				
-				for link in `find "$FILEPATH" -type l`; do
+				for link in `find "$FILEPATH" -type l  $SYDFIGN`; do
 					remove "$link"
 				done
 
@@ -183,7 +191,7 @@ function remove {
 function cleanup {
 	
 	local file
-	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" \
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
 				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
 		
 		if [ ! -L /$file ]; then
@@ -205,7 +213,7 @@ function cleanup {
 # List all files inside sydf directory
 function list {
 
-	find "$SYDFDIR" -type f ! -path "$SYDFDIR" ! -path "$SYDFTRACKER" \
+	find "$SYDFDIR" $SYDFIGN ! -path "$SYDFDIR" ! -path "$SYDFTRACKER" \
 		  ! -path "$SYDFOLD" -printf "$1%P\n"; 
 
 }
@@ -254,7 +262,7 @@ function safelink {
 function hook {
 
 	local file
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
 				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
 		
 		FILEPATH="$SYDFDIR$file"
@@ -314,7 +322,7 @@ function unhook_ {
 		count=0
 	fi
 
-	for file in `find "$SYDFDIR/$1"  -maxdepth 1 ! -path "$SYDFDIR/$1" \
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
 				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
 		
 		if [ -L "/$file" ]; then
