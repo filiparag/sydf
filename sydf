@@ -366,7 +366,7 @@ function safelink {
 # OLD
 # Move target to .old. If there is a conflicht with another version of the same 
 # file in .old, check checksums. if they are the same, discard new version, 
-# otherwise add timestamp to filename of the old version
+# otherwise add timestamp and sydf_conflit extension the old file
 function old {
 
 	FILEPATH="${1:1}"
@@ -378,7 +378,7 @@ function old {
 
 		if [ -d "$SYDFDIR/.old/$FILEPATH" ] || [ -d "/$FILEPATH" ]; then
 
-			OLDNAME="`basename $FILEPATH`.$MODIFY"
+			OLDNAME="`basename $FILEPATH`.$MODIFY.sydf_conflict"
 			mv "$SYDFDIR/.old/$FILEPATH" \
 			   "`dirname $SYDFDIR/.old/$FILEPATH`/$OLDNAME"
 		
@@ -389,7 +389,7 @@ function old {
 
 			if [[ "$SHANEW" != "$SHAOLD" ]]; then
 
-				OLDNAME="`basename $FILEPATH`.$MODIFY"
+				OLDNAME="`basename $FILEPATH`.$MODIFY.sydf_conflict"
 				mv "$SYDFDIR/.old/$FILEPATH" \
 				   "`dirname $SYDFDIR/.old/$FILEPATH`/$OLDNAME"
 
