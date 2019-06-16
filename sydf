@@ -264,20 +264,22 @@ function remove {
 			fi
 
 		elif [ -d "$SYDFDIR/$FILE" ]; then
-			
+
 			if [ `trackdir has "$FILEPATH"` ]; then
 				
 				doas rm "$FILEPATH"
-				if [[ $1 == "link" ]]; then
+				if [ $1 == "link" ]; then
 					doas mv "$SYDFDIR/$FILE" "$FILEPATH"
 					doas trackdir del "$FILEPATH"
 				fi
 
 			else
 				
-				for link in `find "$FILEPATH" -type l  $SYDFIGN`; do
-					remove link "$link"
-				done
+				if [ $1 == "link" ]; then
+					for link in `find "$FILEPATH" -type l  $SYDFIGN`; do
+						remove link "$link"
+					done
+				fi
 
 			fi
 
@@ -297,14 +299,16 @@ function cleanup {
 	local file
 	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
 				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
-		
-		if [ ! -L /$file ]; then
-			if [ -z "`ls -A $SYDFDIR/$file`" ]; then
-				doas rmdir "$SYDFDIR/$file"
+
+		if [ ! -L $file ]; then
+			if [ -z "`ls -A $SYDFDIR$file`" ] && 
+			   [ -z `trackdir has "$file"` ]; then
+				doas rmdir "$SYDFDIR$file"
 			else
 				cleanup $file
-				if [ -z "`ls -A $SYDFDIR/$file`" ]; then
-					doas rmdir "$SYDFDIR/$file"
+				if [ -z "`ls -A $SYDFDIR$file`" ] && 
+				   [ -z `trackdir has "$file"` ]; then
+					doas rmdir "$SYDFDIR$file"
 				fi
 			fi
 		fi
@@ -391,7 +395,7 @@ function hook {
 			hook "$file"
 
 		else
-			
+
 			safelink "$FILEPATH" "$file"
 
 		fi
