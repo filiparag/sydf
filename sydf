@@ -285,9 +285,18 @@ function hook {
 				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
 		
 		FILEPATH="$SYDFDIR$file"
-		DIR=`dirname "$FILEPATH"`
+		DIR=`dirname "$file"`
 
 		if [ -f $FILEPATH ] && [ -z `trackdir sub "$file"` ]; then
+
+			if [ ! -d "$DIR" ]; then
+				if [ `prompt "'$DIR' exists, replace?" Yn` = "no" ]; then
+					return
+				else
+					doas mkdir -p "$SYDFDIR/.old`dirname \"$DIR\"`"
+					doas mv "$DIR" "$SYDFDIR/.old$DIR"
+				fi
+			fi
 
 			doas mkdir -p "$DIR"
 			safelink "$FILEPATH" "$file"
@@ -318,7 +327,7 @@ function unhook {
 
 	SNAPSHOT=`snapshot`
 
-	if [ `unhook_` -gt 0 ]; then
+	if [[ `unhook_` -gt 0 ]]; then
 
 		doas mv $SNAPSHOT/* "$SYDFDIR"
 		doas mv $SNAPSHOT/.sydf "$SYDFDIR"
@@ -345,7 +354,7 @@ function unhook_ {
 				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
 		
 		if [ -L "/$file" ]; then
-			remove "$file"
+			remove link "$file"
 			count=$(( $count + 1 ))
 		else
 			count=`unhook_ "$file" $count`
