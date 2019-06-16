@@ -29,6 +29,33 @@ function path {
 
 }
 
+# DELTAPATH
+# Returns part of a path that does not exist / exists in the filesystem
+function deltapath {
+
+	EXISTING=""
+	ADDED=""
+
+	for part in `echo $2 | sed "s:/: :g"`; do
+		if [ -e "$EXISTING/$part" ]; then
+			EXISTING="$EXISTING/$part"
+		else
+			ADDED="$ADDED/$part"
+		fi
+	done
+
+	if [ -z "$EXISTING" ]; then
+		EXISTING="/"
+	fi
+
+	if [[ $1 = "existing" ]]; then
+		echo $EXISTING
+	else
+		echo $ADDED
+	fi
+
+}
+
 # INIT
 # Checks whether current user has their sydf directory configured
 # If not, provided path is used and saved into the config file
@@ -467,6 +494,9 @@ case $1 in
 		;;
 	doas)
 		doas ${@:2};
+		;;
+	deltapath)
+		deltapath ${@:2};
 		;;
 	*)
 		help;
