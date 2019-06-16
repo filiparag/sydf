@@ -545,28 +545,8 @@ case $1 in
 	revert)
 		revert;
 		;;
-
-	# Debug functions
-	path)
-		path ${@:2};
-		;;
-	cleanup)
-		cleanup;
-		;;
-	snapshot)
-		snapshot;
-		;;
-	trackdir)
-		trackdir ${@:2};
-		;;
-	doas)
-		doas ${@:2};
-		;;
-	deltapath)
-		deltapath $2 $3;
-		;;
-	directory)
-		directory $2 $3;
+	debug)
+		$2 ${@:3};
 		;;
 	*)
 		help;
