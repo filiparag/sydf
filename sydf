@@ -363,6 +363,46 @@ function safelink {
 
 }
 
+# OLD
+# Move target to .old. If there is a conflicht with another version of the same 
+# file in .old, check checksums. if they are the same, discard new version, 
+# otherwise add timestamp to filename of the old version
+function old {
+
+	FILEPATH="${1:1}"
+
+	if [ -e "$SYDFDIR/.old/$FILEPATH" ]; then
+
+		MODIFY=`stat $SYDFDIR/.old/$FILEPATH -c "%y" | sed -E \
+				"s/:/-/g; s/\.[0-9](.*)//g; s/ /./g;"`
+
+		if [ -d "$SYDFDIR/.old/$FILEPATH" ] || [ -d "/$FILEPATH" ]; then
+
+			OLDNAME="`basename $FILEPATH`.$MODIFY"
+			mv "$SYDFDIR/.old/$FILEPATH" \
+			   "`dirname $SYDFDIR/.old/$FILEPATH`/$OLDNAME"
+		
+		else
+
+			SHANEW=`shasum -b "/$FILEPATH" | cut -d " " -f 1`
+			SHAOLD=`shasum -b "$SYDFDIR/.old/$FILEPATH" | cut -d " " -f 1`
+
+			if [[ "$SHANEW" != "$SHAOLD" ]]; then
+
+				OLDNAME="`basename $FILEPATH`.$MODIFY"
+				mv "$SYDFDIR/.old/$FILEPATH" \
+				   "`dirname $SYDFDIR/.old/$FILEPATH`/$OLDNAME"
+
+			fi
+
+		fi
+
+	fi
+
+	mv "$FILEPATH" "$SYDFDIR/.old/$FILEPATH"
+
+}
+
 # HOOK
 # Try linking all files and directories inside sydf directory to their 
 # appropriate places in the system. Tracked directory list is used to restore
