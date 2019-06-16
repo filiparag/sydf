@@ -82,7 +82,7 @@ function directory {
 	elif [ $1 = "del" ]; then
 
 		DELTA=`grep -F "%$DIR:" "$SYDFTRACKER"`
-
+		
 		if [ -z $DELTA ]; then
 			return
 		fi
@@ -234,11 +234,15 @@ function add {
 # TODO: restructuring
 function remove {
 
-	if [[ -z "${@}" ]]; then
+	if [[ $1 != "permanent" ]] && [[ $1 != "link" ]]; then
+		return
+	fi
+
+	if [[ -z "${@:2}" ]]; then
 		echo "no files selected to remove"
 	fi
 
-	for file in "${@}"; do
+	for file in "${@:2}"; do
 		
 		FILEPATH=`path "$file"`
 		FILE="${FILEPATH:1}"
@@ -253,7 +257,9 @@ function remove {
 			else
 			
 				doas rm "$FILEPATH"
-				doas mv "$SYDFDIR/$FILE" "$FILEPATH"
+				if [[ $1 == "link" ]]; then
+					doas mv "$SYDFDIR/$FILE" "$FILEPATH"
+				fi 
 
 			fi
 
@@ -262,13 +268,15 @@ function remove {
 			if [ `trackdir has "$FILEPATH"` ]; then
 				
 				doas rm "$FILEPATH"
-				doas mv "$SYDFDIR/$FILE" "$FILEPATH"
-				doas trackdir del "$FILEPATH"
+				if [[ $1 == "link" ]]; then
+					doas mv "$SYDFDIR/$FILE" "$FILEPATH"
+					doas trackdir del "$FILEPATH"
+				fi
 
 			else
 				
 				for link in `find "$FILEPATH" -type l  $SYDFIGN`; do
-					remove "$link"
+					remove link "$link"
 				done
 
 			fi
@@ -366,7 +374,7 @@ function hook {
 
 		if [ -f $FILEPATH ] && [ -z `trackdir sub "$file"` ]; then
 
-			if [ ! -d "$DIR" ]; then
+			if [ -e "$DIR" ] && [ ! -d "$DIR" ]; then
 				if [ `prompt "'$DIR' exists, replace?" Yn` = "no" ]; then
 					return
 				else
@@ -429,7 +437,7 @@ function unhook_ {
 
 	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
 				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
-		
+
 		if [ -L "/$file" ]; then
 			remove link "$file"
 			count=$(( $count + 1 ))
@@ -505,7 +513,9 @@ COMMANDS
   hook
       Attempts to link all managed files
   unhook
-      Reverts all symbolic links\n"
+      Swaps all symbolic links with corresponding files
+  revert
+      Reverts all changes done to the filesystem\n"
 }
 
 case $1 in
@@ -517,7 +527,7 @@ case $1 in
 		add ${@:2};
 		;;
 	remove)
-		remove ${@:2};
+		remove link ${@:2};
 		;;
 	list)
 		list /;
@@ -527,6 +537,9 @@ case $1 in
 		;;
 	unhook)
 		unhook;
+		;;
+	revert)
+		revert;
 		;;
 
 	# Debug functions
