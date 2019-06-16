@@ -36,7 +36,7 @@ function deltapath {
 	EXISTING=""
 	ADDED=""
 
-	for part in `echo $2 | sed "s:/: :g"`; do
+	for part in `echo $2 | sed "s|/| |g"`; do
 		if [ -e "$EXISTING/$part" ]; then
 			EXISTING="$EXISTING/$part"
 		else
@@ -48,10 +48,60 @@ function deltapath {
 		EXISTING="/"
 	fi
 
-	if [[ $1 = "existing" ]]; then
+	if [ $1 = "existing" ]; then
 		echo $EXISTING
 	else
 		echo $ADDED
+	fi
+
+}
+
+# DIRECTORY
+# Create nested directory and remember the whole chain, so it can be later 
+# deleted. Directories containing children won't be affected by deletion 
+function directory {
+
+	if [[ $1 != "add" ]] && [[ $1 != "del" ]]; then
+		return
+	fi
+
+	DIR=${2%/}
+
+	if [ $1 = "add" ]; then
+
+		EXISTING=`deltapath existing "$DIR"`
+		ADDED=`deltapath added "$DIR"`
+		DELTA="%$DIR:$EXISTING;$ADDED#"
+
+		doas mkdir -p "$DIR"
+
+		if [ ! -z $ADDED ]; then
+			grep -qxF "$DELTA" "$SYDFTRACKER" || echo "$DELTA" >> "$SYDFTRACKER"
+		fi
+
+	elif [ $1 = "del" ]; then
+
+		DELTA=`grep -F "%$DIR:" "$SYDFTRACKER"`
+
+		if [ -z $DELTA ]; then
+			return
+		fi
+
+		EXISTING=`echo $DELTA | sed -e "s/%\(.*\)://; s/;\(.*\)//"`
+		ADDED=`echo $DELTA | sed -e "s/\(.*\);//; s/#//g"`
+
+		while [[ $DIR != $EXISTING ]]; do
+			
+			if [ -z "`ls -A $DIR`" ]; then
+				doas rmdir "$DIR"
+			fi
+
+			DIR=`dirname $DIR`
+
+		done
+
+		sed -i "\|$DELTA|d" "$SYDFTRACKER"
+
 	fi
 
 }
@@ -157,13 +207,13 @@ function add {
 			echo "'$file' is already managed using sydf"
 		elif [ -f "$FILEPATH" ] && [ ! -L "$file" ]; then
 
-			doas mkdir -p "$SYDFDIR/$DIR"
+			directory add "$SYDFDIR/$DIR"
 			doas mv "/$FILE" "$SYDFDIR/$FILE"
 			doas ln -s "$SYDFDIR/$FILE" "/$FILE"
 
 		elif [ -d "$FILEPATH" ] && [ ! -L "$file" ]; then
 
-			doas mkdir -p "$SYDFDIR/$DIR"
+			directory add "$SYDFDIR/$DIR"
 			doas mv "/$FILE" "$SYDFDIR/$FILE"
 			doas ln -s "$SYDFDIR/$FILE" "/$FILE"
 
@@ -325,7 +375,7 @@ function hook {
 				fi
 			fi
 
-			doas mkdir -p "$DIR"
+			directory add "$DIR"
 			safelink "$FILEPATH" "$file"
 
 		elif [ -z `trackdir has "$file"` ]; then
@@ -496,7 +546,10 @@ case $1 in
 		doas ${@:2};
 		;;
 	deltapath)
-		deltapath ${@:2};
+		deltapath $2 $3;
+		;;
+	directory)
+		directory $2 $3;
 		;;
 	*)
 		help;
