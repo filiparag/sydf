@@ -18,17 +18,18 @@ yay -S sydf
 **Manual**
 
 Run these commands in your terminal to set up _sydf_ system-wide:
-```sh
-# Install latest version
-curl -L "https://raw.githubusercontent.com/filiparag/sydf/master/sydf" > /tmp/sydf
+```bash
+# Download latest stable release
+REL=$(curl -LsI 'https://github.com/filiparag/sydf/releases/latest' | grep -Po 'tag\/\K(\S+)')
+curl -L "https://github.com/filiparag/sydf/releases/download/$REL/sydf" > /tmp/sydf
 
-# Install stable release 0.2
-curl -L "https://github.com/filiparag/sydf/releases/download/0.2/sydf" > /tmp/sydf
+# Download latest development version - not recommended
+curl -L "https://raw.githubusercontent.com/filiparag/sydf/master/sydf" > /tmp/sydf
 
 chmod +x /tmp/sydf
 sudo mv /tmp/sydf /usr/bin/sydf
-
 ```
+Warning: installing the latest development version as opposed to a stable release might result in broken features and data loss! Proceed with caution.
 
 ### Usage
 
