@@ -74,6 +74,13 @@ Unhooking will replace all symbolic links created by _sydf_ with corresponding f
 sydf unhook
 ```
 
+**Revert**
+
+Revert can be used to completely undo all actions performed on the filesystem outside _sydf_'s working directory. All created directories will be removed unless they contain data not managed by _sydf_. Reverting will not work if files are unhooked beforehand.
+```sh
+sydf revert
+```
+
 **Ignore list**
 
 If you want to have some files inside _sydf_'s working directory ignored by _sydf_, you can add them into the `.sydf` file. _sydf_ will not be able to remove lines containing ignored files, but be wary that the same file is used for directory tracking and it might change over time. Every ignored file rule has to follow this syntax:

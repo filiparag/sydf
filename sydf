@@ -68,7 +68,9 @@ function directory {
 		return
 	fi
 
-	DIR=${2%/}
+	local DIR
+
+	DIR=$2
 
 	if [ $1 = "add" ]; then
 
@@ -300,8 +302,8 @@ function remove {
 function cleanup {
 	
 	local file
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
-				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 $IGNORELIST -printf "$1/%P\n"`; do
 
 		if [ ! -L $file ]; then
 			if [ -z "`ls -A $SYDFDIR$file`" ] && 
@@ -413,8 +415,8 @@ function old {
 function hook {
 
 	local file
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
-				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 $IGNORELIST -printf "$1/%P\n"`; do
 		
 		FILEPATH="$SYDFDIR$file"
 		DIR=`dirname "$file"`
@@ -438,6 +440,7 @@ function hook {
 
 		else
 
+			directory add "$DIR"
 			safelink "$FILEPATH" "$file"
 
 		fi
@@ -481,8 +484,8 @@ function unhook_ {
 		count=0
 	fi
 
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
-				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 $IGNORELIST -printf "$1/%P\n"`; do
 
 		if [ -L "/$file" ]; then
 			remove link "$file"
@@ -497,24 +500,49 @@ function unhook_ {
 
 }
 
+# REVERT
+# Revert all changes done by sydf gracefully. If there are directories created
+# by hooking that now contain unmanaged data, they are not going to be deleted
+function revert {
+
+	revert_
+
+	if [ ! -e "$SYDFDIR/.old" ] || [ -z "`ls -A $SYDFDIR/.old`" ]; then
+		return
+	fi
+
+	for file in `find "$SYDFDIR/.old" ! \( -name "*.sydf_conflict" -prune \) \
+				 ! -path "$SYDFDIR/.old" -type f -printf "$1/%P\n"`; do
+
+		if [ ! -e $file ]; then
+			doas cp -rp "$SYDFDIR/.old$file" $file
+		fi
+
+	done
+
+}
+
 # REVERT_
 # Helper function to remove all sydf created links from filesystem
 function revert_ {
 
 	local file
+	local DIR
 
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
-				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 $IGNORELIST -printf "$1/%P\n"`; do
 		
 		DIR=`dirname "$file"`
 
 		if [ -L "$file" ]; then
+
 			remove permanent "$file"
+			directory del "/$DIR"
+
 			if [ `trackdir has "$file"` ]; then
 				doas mkdir -p "$file"
-			else
-				directory del "$DIR"
 			fi
+
 		else
 			revert_ "$file"
 		fi
