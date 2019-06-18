@@ -22,6 +22,10 @@ if [ -f "$SYDFCONFIG" ]; then
 	SYDFTRK=`cat $SYDFTRACKER | grep ">" | sed -Ez "s|>|-not \( -path $SYDFDIR|g; \
 			 s/#/ -prune \)/g; s/\n/ /g"`
 
+	mkdir -p "$SYDFOLD"
+	touch "$SYDFTRACKER"
+	sort -o "$SYDFTRACKER" "$SYDFTRACKER" -k1
+
 elif [[ $1 != "init" ]] && [[ $1 != "help" ]]; then
 
 	echo "sydf needs to be initialized"
@@ -349,6 +353,46 @@ function list {
 
 }
 
+# IGNORE
+# Add or remove path from ignore list
+function ignore {
+
+	if [ -z $1 ]; then
+
+		list ignore
+		return
+
+	elif [[ $1 != "add" ]] && [[ $1 != "remove" ]]; then
+
+		echo "unknown command"
+		return
+
+	fi
+
+	for file in "${@:2}"; do
+	
+		FILE=${file%/}
+
+		if [ -z $FILE ] || [[ ${file:0:1} == "/" ]]; then
+
+			echo "'$file' is not a relative path"
+
+		elif [[ $1 == "add" ]]; then
+			
+			grep -qxF "!$FILE#" "$SYDFTRACKER" \
+			  || echo "!$FILE#" >> "$SYDFTRACKER"
+
+
+		elif [[ $1 == "remove" ]]; then
+			
+			sed -i "\|!$FILE\#|d" "$SYDFTRACKER"
+
+		fi
+
+	done
+
+}
+
 # SNAPSHOT
 # Create a snapshot of sydf directory inside /tmp/sydf and return its path
 function snapshot {
@@ -375,7 +419,7 @@ function safelink {
 	TARGET=$2
 
 	if [ -e $TARGET ]; then
-		if [ `prompt "'$TARGET' exists, replace?" Yn` = "no" ]; then
+		if [[ `prompt "'$TARGET' exists, replace?" Yn` == "no" ]]; then
 			return
 		else
 			old "$TARGET"
@@ -479,7 +523,7 @@ function hook {
 		if [ -f $FILEPATH ] && [ -z `trackdir sub "$file"` ]; then
 
 			if [ -e "$DIR" ] && [ ! -d "$DIR" ]; then
-				if [ `prompt "'$DIR' exists, replace?" Yn` = "no" ]; then
+				if [[ `prompt "'$DIR' exists, replace?" Yn` == "no" ]]; then
 					return
 				else
 					old "$FILEPATH"
@@ -565,7 +609,8 @@ function unhook_ {
 function revert {
 
 	if [ -z `tamper verify` ] &&
-	   [ `prompt "some files might not be restored, proceed?" yN` == "no" ]; then
+	   [[ `prompt "some files might not be restored, proceed?" yN` == "no" ]];
+	then
 		return
 	fi
 
@@ -691,7 +736,10 @@ COMMANDS
       Swaps all symbolic links with corresponding files
 
   revert
-      Reverts all changes done to the filesystem\n"
+      Reverts all changes done to the filesystem
+
+  ignore [add|remove]
+  	  Add or remove path from ignored list\n"
 }
 
 case $1 in
