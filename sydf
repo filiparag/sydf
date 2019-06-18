@@ -396,15 +396,40 @@ function old {
 				OLDNAME="`basename $FILEPATH`.$MODIFY.sydf_conflict"
 				doas mv "$SYDFDIR/.old/$FILEPATH" \
 				   "`dirname $SYDFDIR/.old/$FILEPATH`/$OLDNAME"
+# TAMPER
+# Detect any tampering of the .old directory
+function tamper {
 
-			fi
+	local SHAOLD
+	local SHANEW
 
+	if [[ $1 != "verify" ]] && [[ $1 != "update" ]]; then
+		return
+	fi
+
+	if [ ! -e "$SYDFOLD" ]; then
+		doas mkdir -p "$SYDFOLD"
+		tamper update
+	fi
+
+	SHANEW=`tar -cf - "$SYDFOLD" -P | shasum | cut -d ' ' -f 1`
+	SHAOLD=`grep "&" "$SYDFTRACKER" | sed "s/&//; s/#//"`
+	
+	if [[ $1 == "verify" ]]; then
+
+		if [[ $SHAOLD == $SHANEW ]]; then
+			echo "ok"
+		fi
+
+	elif [[ $1 == "update" ]]; then
+
+		if [ -z "$SHAOLD" ]; then
+			echo "&$SHANEW#" >> "$SYDFTRACKER"
+		else
+			sed -i "s/$SHAOLD/$SHANEW/" "$SYDFTRACKER"
 		fi
 
 	fi
-
-	doas mkdir -p `dirname "$SYDFDIR/.old/$FILEPATH"`
-	doas mv "/$FILEPATH" "$SYDFDIR/.old/$FILEPATH"
 
 }
 
@@ -446,6 +471,10 @@ function hook {
 		fi
 
 	done
+
+	if [ -z $1 ]; then
+		tamper update
+	fi
 
 }
 
@@ -504,6 +533,11 @@ function unhook_ {
 # Revert all changes done by sydf gracefully. If there are directories created
 # by hooking that now contain unmanaged data, they are not going to be deleted
 function revert {
+
+	if [ -z `tamper verify` ] &&
+	   [ `prompt "some files might not be restored, proceed?" yN` == "no" ]; then
+		return
+	fi
 
 	revert_
 
