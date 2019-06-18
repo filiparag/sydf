@@ -2,9 +2,7 @@
 
 ### Description
 
-_sydf_ is a small bash utility for managing files. Main purpose of this utility
-is to make sharing and syncing dotfiles across devices as easy as possible. It is intended to be used in conjunction with git, syncthing, borgbackup,
-nextcloud and other programs.
+_sydf_ is a bash utility for managing files. Main purpose of this utility is to make sharing and syncing dotfiles across devices as easy as possible by keeping them in a single directory. It is intended to be used in conjunction with git, syncthing, borgbackup, nextcloud and other programs.
 
 ### Installation
 
@@ -80,6 +78,7 @@ Revert can be used to completely undo all actions performed on the filesystem ou
 ```sh
 sydf revert
 ```
+Warning: any modification of the `.old` directory inside of the working folder might break reversion process!
 
 **Ignore list**
 
