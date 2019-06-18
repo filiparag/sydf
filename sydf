@@ -381,7 +381,7 @@ function old {
 		if [ -d "$SYDFDIR/.old/$FILEPATH" ] || [ -d "/$FILEPATH" ]; then
 
 			OLDNAME="`basename $FILEPATH`.$MODIFY.sydf_conflict"
-			mv "$SYDFDIR/.old/$FILEPATH" \
+			doas mv "$SYDFDIR/.old/$FILEPATH" \
 			   "`dirname $SYDFDIR/.old/$FILEPATH`/$OLDNAME"
 		
 		else
@@ -392,7 +392,7 @@ function old {
 			if [[ "$SHANEW" != "$SHAOLD" ]]; then
 
 				OLDNAME="`basename $FILEPATH`.$MODIFY.sydf_conflict"
-				mv "$SYDFDIR/.old/$FILEPATH" \
+				doas mv "$SYDFDIR/.old/$FILEPATH" \
 				   "`dirname $SYDFDIR/.old/$FILEPATH`/$OLDNAME"
 
 			fi
@@ -401,8 +401,8 @@ function old {
 
 	fi
 
-	mkdir -p `dirname "$SYDFDIR/.old/$FILEPATH"`
-	mv "/$FILEPATH" "$SYDFDIR/.old/$FILEPATH"
+	doas mkdir -p `dirname "$SYDFDIR/.old/$FILEPATH"`
+	doas mv "/$FILEPATH" "$SYDFDIR/.old/$FILEPATH"
 
 }
 
@@ -495,6 +495,31 @@ function unhook_ {
 
 	echo $count
 
+}
+
+# REVERT_
+# Helper function to remove all sydf created links from filesystem
+function revert_ {
+
+	local file
+
+	for file in `find "$SYDFDIR/$1" -maxdepth 1 $SYDFIGN ! -path "$SYDFDIR/$1" \
+				 ! -path "$SYDFTRACKER" ! -path "$SYDFOLD" -printf "$1/%P\n"`; do
+		
+		DIR=`dirname "$file"`
+
+		if [ -L "$file" ]; then
+			remove permanent "$file"
+			if [ `trackdir has "$file"` ]; then
+				doas mkdir -p "$file"
+			else
+				directory del "$DIR"
+			fi
+		else
+			revert_ "$file"
+		fi
+
+	done
 }
 
 # PROMPT
