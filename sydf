@@ -375,27 +375,39 @@ function old {
 
 	FILEPATH="${1:1}"
 
-	if [ -e "$SYDFDIR/.old/$FILEPATH" ]; then
+	if [ -e "$SYDFOLD/$FILEPATH" ]; then
 
-		MODIFY=`stat $SYDFDIR/.old/$FILEPATH -c "%y" | sed -E \
+		MODIFY=`stat $SYDFOLD/$FILEPATH -c "%y" | sed -E \
 				"s/:/-/g; s/\.[0-9](.*)//g; s/ /./g;"`
 
-		if [ -d "$SYDFDIR/.old/$FILEPATH" ] || [ -d "/$FILEPATH" ]; then
+		if [ -d "$SYDFOLD/$FILEPATH" ] || [ -d "/$FILEPATH" ]; then
 
 			OLDNAME="`basename $FILEPATH`.$MODIFY.sydf_conflict"
-			doas mv "$SYDFDIR/.old/$FILEPATH" \
-			   "`dirname $SYDFDIR/.old/$FILEPATH`/$OLDNAME"
+			doas mv "$SYDFOLD/$FILEPATH" \
+			   "`dirname $SYDFOLD/$FILEPATH`/$OLDNAME"
 		
 		else
 
 			SHANEW=`shasum -b "/$FILEPATH" | cut -d " " -f 1`
-			SHAOLD=`shasum -b "$SYDFDIR/.old/$FILEPATH" | cut -d " " -f 1`
+			SHAOLD=`shasum -b "$SYDFOLD/$FILEPATH" | cut -d " " -f 1`
 
 			if [[ "$SHANEW" != "$SHAOLD" ]]; then
 
 				OLDNAME="`basename $FILEPATH`.$MODIFY.sydf_conflict"
-				doas mv "$SYDFDIR/.old/$FILEPATH" \
-				   "`dirname $SYDFDIR/.old/$FILEPATH`/$OLDNAME"
+				doas mv "$SYDFOLD/$FILEPATH" \
+				   "`dirname $SYDFOLD/$FILEPATH`/$OLDNAME"
+
+			fi
+
+		fi
+
+	fi
+
+	doas mkdir -p `dirname "$SYDFOLD/$FILEPATH"`
+	doas mv "/$FILEPATH" "$SYDFOLD/$FILEPATH"
+
+}
+
 # TAMPER
 # Detect any tampering of the .old directory
 function tamper {
@@ -541,15 +553,15 @@ function revert {
 
 	revert_
 
-	if [ ! -e "$SYDFDIR/.old" ] || [ -z "`ls -A $SYDFDIR/.old`" ]; then
+	if [ ! -e "$SYDFOLD" ] || [ -z "`ls -A $SYDFOLD`" ]; then
 		return
 	fi
 
-	for file in `find "$SYDFDIR/.old" ! \( -name "*.sydf_conflict" -prune \) \
-				 ! -path "$SYDFDIR/.old" -type f -printf "$1/%P\n"`; do
+	for file in `find "$SYDFOLD" ! \( -name "*.sydf_conflict" -prune \) \
+				 ! -path "$SYDFOLD" -type f -printf "$1/%P\n"`; do
 
 		if [ ! -e $file ]; then
-			doas cp -rp "$SYDFDIR/.old$file" $file
+			doas cp -rp "$SYDFOLD$file" $file
 		fi
 
 	done
