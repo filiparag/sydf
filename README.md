@@ -53,9 +53,19 @@ sydf remove <FILE> <DIRECTORY>...
 
 **List**
 
-Show a list of all files and directories managed by _sydf_.
+Show a list of files and directories managed by _sydf_.
 ```sh
-sydf list
+# List managed directories
+sydf list dirs
+
+# List files outside managed directories
+sydf list files
+
+# List all managed files and directories
+sydf list all
+
+# List files and directories inside .old directory
+sydf list old
 ```
 
 **Hook**
@@ -80,11 +90,17 @@ sydf revert
 ```
 Warning: any modification of the `.old` directory inside of the working folder might break reversion process!
 
-**Ignore list**
+**Ignore**
 
-If you want to have some files inside _sydf_'s working directory ignored by _sydf_, you can add them into the `.sydf` file. _sydf_ will not be able to remove lines containing ignored files, but be wary that the same file is used for directory tracking and it might change over time. Every ignored file rule has to follow this syntax:
+If you want to have some unmanaged paths like `.git` inside the working directory, you can add them to the ignore list. All ignored paths include their subpaths automatically.
+```sh
+# List ignored paths
+sydf ignore
+
+# Add paths to ignore list
+sydf ignore add <PATH> ...
+
+# Remove paths from ignore list
+sydf ignore remove <PATH> ...
 ```
-!<DIRECTORY>#
-!<FILE>#
-```
-All ignored paths are relative to the _sydf_'s working directory. Do not leave the trailing slash at the end of directory paths, as it won't work!
+All ignored paths are relative to the _sydf_'s working directory.
