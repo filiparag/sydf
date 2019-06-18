@@ -5,6 +5,7 @@ SYDFTRACKER=""
 SYDFDIR=""
 SYDFOLD=""
 SYDFIGN=""
+SYDFTRK=""
 IGNORELIST=""
 
 if [ -f "$SYDFCONFIG" ]; then
@@ -12,10 +13,14 @@ if [ -f "$SYDFCONFIG" ]; then
 	SYDFDIR=`cat "$SYDFCONFIG"`
 	SYDFOLD="$SYDFDIR/.old"
 	SYDFTRACKER="$SYDFDIR/.sydf"
-	SYDFIGN=`cat $SYDFTRACKER | grep "!" | sed -Ez "s|!|-not \( -path $PWD/|g; \
+
+	SYDFIGN=`cat $SYDFTRACKER | grep "!" | sed -Ez "s|!|-not \( -path $SYDFDIR/|g; \
 			 s/#/ -prune \)/g; s/\n/ /g"`
 	IGNORELIST="-not ( -path $SYDFDIR ) -not ( -path $SYDFOLD -prune ) \
-				-not ( -path $SYDFTRACKER -prune ) $SYDFIGN"
+				-not ( -path $SYDFTRACKER ) $SYDFIGN"
+
+	SYDFTRK=`cat $SYDFTRACKER | grep ">" | sed -Ez "s|>|-not \( -path $SYDFDIR|g; \
+			 s/#/ -prune \)/g; s/\n/ /g"`
 
 elif [[ $1 != "init" ]] && [[ $1 != "help" ]]; then
 
@@ -323,11 +328,24 @@ function cleanup {
 }
 
 # LIST
-# List all files inside sydf directory
+# List all managed directories and/or files
 function list {
 
-	grep ">" "$SYDFTRACKER" | sed "s/>//g; s/#//g;"
-	find "$SYDFDIR" $IGNORELIST -type f -printf "$1%P\n";
+	case $1 in
+		dirs|d )
+			grep ">" "$SYDFTRACKER" | sed "s|>||; s|#|$2|";;
+		files|f )
+			find "$SYDFDIR" $IGNORELIST $SYDFTRK -type f -printf "/%P\n";;
+		all|a )
+			find "$SYDFDIR" $IGNORELIST -printf "/%P\n";;
+		old|o )
+			find "$SYDFOLD" -not -path "$SYDFOLD" -printf "/%P\n";;
+		ignore|i )
+			grep "!" "$SYDFTRACKER" | sed "s|!||g; s|#||g;";;
+		*)
+			list dirs /;
+			list files;;
+	esac
 
 }
 
@@ -641,52 +659,68 @@ function help {
 
 	printf \
 "NAME
+
   sydf - symlink your damn files
 
 DESCRIPTION
+
   sydf is a system-wide file linker
 
+SYNOPSIS
+
+  sydf [ -I | -a | -r | -l | -H | -U | -R | -i ]
+
 COMMANDS
-  init
+
+  init <DIRECTORY>
       Initialize sydf directory for current user
-  add
+
+  add <FILE|DIRECTORY> ...
       Add files and directories
-  remove
+
+  remove <FILE|DIRECTORY> ...
       Remove files and directories
-  list
-      List all managed files and directories
+
+  list [files|dirs|ignore|all|old]
+      List managed files and directories
+
   hook
       Attempts to link all managed files
+
   unhook
       Swaps all symbolic links with corresponding files
+
   revert
       Reverts all changes done to the filesystem\n"
 }
 
 case $1 in
 
-	init)
+	init|-I)
 		init $2;
 		;;
-	add)
+	add|-a)
 		add ${@:2};
 		;;
-	remove)
+	remove|-r)
 		remove link ${@:2};
 		;;
-	list)
-		list /;
+	list|-l)
+		list $2;
 		;;
-	hook)
+	hook|-H)
 		hook;
 		;;
-	unhook)
+	unhook|-U)
 		unhook;
 		;;
-	revert)
+	revert|-R)
 		revert;
 		;;
-	debug)
+	ignore|-i)
+		ignore ${@:2};
+		;;
+	debug|-D)
 		$2 ${@:3};
 		;;
 	*)
