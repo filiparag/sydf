@@ -5,14 +5,17 @@ SYDFTRACKER=""
 SYDFDIR=""
 SYDFOLD=""
 SYDFIGN=""
+IGNORELIST=""
 
 if [ -f "$SYDFCONFIG" ]; then
 
 	SYDFDIR=`cat "$SYDFCONFIG"`
 	SYDFOLD="$SYDFDIR/.old"
 	SYDFTRACKER="$SYDFDIR/.sydf"
-	SYDFIGN=`cat $SYDFTRACKER | grep "!" | sed -Ez "s|!|! -path $PWD/|g; \
-			 s/#//g; s/\n/ /g"`
+	SYDFIGN=`cat $SYDFTRACKER | grep "!" | sed -Ez "s|!|-not \( -path $PWD/|g; \
+			 s/#/ -prune \)/g; s/\n/ /g"`
+	IGNORELIST="-not ( -path $SYDFDIR ) -not ( -path $SYDFOLD -prune ) \
+				-not ( -path $SYDFTRACKER -prune ) $SYDFIGN"
 
 elif [[ $1 != "init" ]] && [[ $1 != "help" ]]; then
 
@@ -207,13 +210,13 @@ function add {
 			echo "'$file' is already managed using sydf"
 		elif [ -f "$FILEPATH" ] && [ ! -L "$file" ]; then
 
-			directory add "$SYDFDIR/$DIR"
+			doas mkdir -p "$SYDFDIR/$DIR"
 			doas mv "/$FILE" "$SYDFDIR/$FILE"
 			doas ln -s "$SYDFDIR/$FILE" "/$FILE"
 
 		elif [ -d "$FILEPATH" ] && [ ! -L "$file" ]; then
 
-			directory add "$SYDFDIR/$DIR"
+			doas mkdir -p "$SYDFDIR/$DIR"
 			doas mv "/$FILE" "$SYDFDIR/$FILE"
 			doas ln -s "$SYDFDIR/$FILE" "/$FILE"
 
@@ -321,8 +324,8 @@ function cleanup {
 # List all files inside sydf directory
 function list {
 
-	find "$SYDFDIR" $SYDFIGN ! -path "$SYDFDIR" ! -path "$SYDFTRACKER" \
-		  ! -path "$SYDFOLD" -printf "$1%P\n"; 
+	grep ">" "$SYDFTRACKER" | sed "s/>//g; s/#//g;"
+	find "$SYDFDIR" $IGNORELIST -type f -printf "$1%P\n";
 
 }
 
@@ -355,8 +358,7 @@ function safelink {
 		if [ `prompt "'$TARGET' exists, replace?" Yn` = "no" ]; then
 			return
 		else
-			doas mkdir -p "$SYDFDIR/.old`dirname \"$TARGET\"`"
-			doas mv "$TARGET" "$SYDFDIR/.old$TARGET"
+			old "$TARGET"
 		fi
 	fi
 	doas ln -s "$SOURCE" "$TARGET"
@@ -399,7 +401,8 @@ function old {
 
 	fi
 
-	mv "$FILEPATH" "$SYDFDIR/.old/$FILEPATH"
+	mkdir -p `dirname "$SYDFDIR/.old/$FILEPATH"`
+	mv "/$FILEPATH" "$SYDFDIR/.old/$FILEPATH"
 
 }
 
@@ -422,8 +425,7 @@ function hook {
 				if [ `prompt "'$DIR' exists, replace?" Yn` = "no" ]; then
 					return
 				else
-					doas mkdir -p "$SYDFDIR/.old`dirname \"$DIR\"`"
-					doas mv "$DIR" "$SYDFDIR/.old$DIR"
+					old "$FILEPATH"
 				fi
 			fi
 
