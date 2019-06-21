@@ -1,4 +1,4 @@
-#! /bin/env bash
+#! /usr/bin/env bash
 
 SYDFCONFIG=$HOME/.config/sydf.conf
 SYDFTRACKER=""
@@ -197,7 +197,6 @@ function doas {
 
 	if [ $? != 0 ] && [ -z `echo "$ERROR" | grep -iqF "permission"` ]; then
 		sudo -p "[sydf] Password for $USER: " $COMMAND
-		# echo "[sudo] $COMMAND"
 	fi
 
 }
