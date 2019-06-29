@@ -10,17 +10,17 @@ IGNORELIST=""
 
 if [ -f "$SYDFCONFIG" ]; then
 
-	SYDFDIR=`cat "$SYDFCONFIG"`
+	SYDFDIR=$( cat "$SYDFCONFIG" )
 	SYDFOLD="$SYDFDIR/.old"
 	SYDFTRACKER="$SYDFDIR/.sydf"
 
-	SYDFIGN=`cat $SYDFTRACKER | grep "!" | sed -Ez "s|!|-not \( -path $SYDFDIR/|g; \
-			 s/#/ -prune \)/g; s/\n/ /g"`
+	SYDFIGN=$( cat $SYDFTRACKER | grep "!" | sed -Ez "s|!|-not \( -path $SYDFDIR/|g; \
+			 s/#/ -prune \)/g; s/\n/ /g" )
 	IGNORELIST="-not ( -path $SYDFDIR ) -not ( -path $SYDFOLD -prune ) \
 				-not ( -path $SYDFTRACKER ) $SYDFIGN"
 
-	SYDFTRK=`cat $SYDFTRACKER | grep ">" | sed -Ez "s|>|-not \( -path $SYDFDIR|g; \
-			 s/#/ -prune \)/g; s/\n/ /g"`
+	SYDFTRK=$( cat $SYDFTRACKER | grep ">" | sed -Ez "s|>|-not \( -path $SYDFDIR|g; \
+			 s/#/ -prune \)/g; s/\n/ /g" )
 
 	mkdir -p "$SYDFOLD"
 	touch "$SYDFTRACKER"
@@ -37,7 +37,7 @@ fi
 # Sanitizes received path and converts it to absolute path
 function path {
 
-	echo `realpath --no-symlinks "$1"`
+	echo $( realpath --no-symlinks "$1" )
 
 }
 
@@ -48,7 +48,7 @@ function deltapath {
 	EXISTING=""
 	ADDED=""
 
-	for part in `echo $2 | sed "s|/| |g"`; do
+	for part in $( echo $2 | sed "s|/| |g" ); do
 		if [ -e "$EXISTING/$part" ]; then
 			EXISTING="$EXISTING/$part"
 		else
@@ -83,8 +83,8 @@ function directory {
 
 	if [ $1 = "add" ]; then
 
-		EXISTING=`deltapath existing "$DIR"`
-		ADDED=`deltapath added "$DIR"`
+		EXISTING=$( deltapath existing "$DIR" )
+		ADDED=$( deltapath added "$DIR" )
 		DELTA="%$DIR:$EXISTING;$ADDED#"
 
 		doas mkdir -p "$DIR"
@@ -95,22 +95,22 @@ function directory {
 
 	elif [ $1 = "del" ]; then
 
-		DELTA=`grep -F "%$DIR:" "$SYDFTRACKER"`
+		DELTA=$( grep -F "%$DIR:" "$SYDFTRACKER" )
 		
 		if [ -z $DELTA ]; then
 			return
 		fi
 
-		EXISTING=`echo $DELTA | sed -e "s/%\(.*\)://; s/;\(.*\)//"`
-		ADDED=`echo $DELTA | sed -e "s/\(.*\);//; s/#//g"`
+		EXISTING=$( echo $DELTA | sed -e "s/%\(.*\)://; s/;\(.*\)//" )
+		ADDED=$( echo $DELTA | sed -e "s/\(.*\);//; s/#//g" )
 
 		while [[ $DIR != $EXISTING ]]; do
 			
-			if [ -z "`ls -A $DIR`" ]; then
+			if [ -z "$( ls -A $DIR )" ]; then
 				doas rmdir "$DIR"
 			fi
 
-			DIR=`dirname $DIR`
+			DIR=$( dirname $DIR )
 
 		done
 
@@ -130,17 +130,17 @@ function init {
 	if [[ -z "$1" ]]; then
 		DIR="$HOME/.sydf"
 	else
-		DIR=`path "$1"`
+		DIR=$( path "$1" )
 	fi
 
 	if [ -e "$SYDFCONFIG" ]; then
-		if [ "$DIR" = `cat "$SYDFCONFIG"` ]; then
+		if [ "$DIR" = $( cat "$SYDFCONFIG" ) ]; then
 			echo "sydf is already configured to use this directory"
 		else
 			echo "sydf is configured to use another directory"
 		fi
 	else
-		mkdir -p `dirname $SYDFCONFIG`
+		mkdir -p $( dirname $SYDFCONFIG )
 		echo "$DIR" > "$SYDFCONFIG"
 		doas mkdir -p "$DIR"
 		doas chown $USER "$DIR"
@@ -162,8 +162,8 @@ function trackdir {
 	elif [ $1 = "has" ]; then
 		grep -n ">$2#" "$SYDFTRACKER" | cut -f1 -d:
 	elif [ $1 = "sub" ]; then
-		if [ -z `trackdir has "$2"` ]; then
-			for dir in `cat $SYDFTRACKER`; do
+		if [ -z $( trackdir has "$2" ) ]; then
+			for dir in $( cat $SYDFTRACKER ); do
 				if [[ ">$2" == "${dir:0:-1}/"* ]]; then
 					echo "${dir:1:-1}"
 					break
@@ -173,10 +173,10 @@ function trackdir {
 			echo "$2"
 		fi
 	elif [ $1 = "ign" ]; then
-		if [ `grep -n "!$2#" "$SYDFTRACKER" | cut -f1 -d:` ]; then
+		if [ $( grep -n "!$2#" "$SYDFTRACKER" | cut -f1 -d: ) ]; then
 			echo $2
 		else
-			for dir in `cat $SYDFTRACKER`; do
+			for dir in $( cat $SYDFTRACKER ); do
 				if [[ "!$2" == "${dir:0:-1}/"* ]]; then
 					echo "${dir:1:-1}"
 					break
@@ -193,9 +193,9 @@ function trackdir {
 function doas {
 
 	COMMAND="$@"
-	ERROR=`$COMMAND 2>&1`
+	ERROR=$( $COMMAND 2>&1 )
 
-	if [ $? != 0 ] && [ -z `echo "$ERROR" | grep -iqF "permission"` ]; then
+	if [ $? != 0 ] && [ -z $( echo "$ERROR" | grep -iqF "permission" ) ]; then
 		sudo -p "[sydf] Password for $USER: " $COMMAND
 	fi
 
@@ -212,9 +212,9 @@ function add {
 
 	for file in "${@}"; do
 
-		FILEPATH=`path "$file"`
+		FILEPATH=$( path "$file" )
 		FILE="${FILEPATH:1}"
-		DIR=`dirname "$FILE"`
+		DIR=$( dirname "$FILE" )
 
 		if [ -e "$SYDFDIR/$FILE" ]; then
 			echo "'$file' is already managed using sydf"
@@ -257,13 +257,13 @@ function remove {
 
 	for file in "${@:2}"; do
 		
-		FILEPATH=`path "$file"`
+		FILEPATH=$( path "$file" )
 		FILE="${FILEPATH:1}"
-		DIR=`dirname "$FILE"`
+		DIR=$( dirname "$FILE" )
 
 		if [ -f "$SYDFDIR/$FILE" ]; then
 
-			if [ `trackdir sub "$FILEPATH"` ]; then
+			if [ $( trackdir sub "$FILEPATH" ) ]; then
 				
 				echo "removing file inside linked directory is not supported"
 
@@ -278,7 +278,7 @@ function remove {
 
 		elif [ -d "$SYDFDIR/$FILE" ]; then
 
-			if [ `trackdir has "$FILEPATH"` ]; then
+			if [ $( trackdir has "$FILEPATH" ) ]; then
 				
 				doas rm "$FILEPATH"
 				if [ $1 == "link" ]; then
@@ -289,7 +289,7 @@ function remove {
 			else
 				
 				if [ $1 == "link" ]; then
-					for link in `find "$FILEPATH" -type l  $SYDFIGN`; do
+					for link in $( find "$FILEPATH" -type l  $SYDFIGN ); do
 						remove link "$link"
 					done
 				fi
@@ -310,17 +310,17 @@ function remove {
 function cleanup {
 	
 	local file
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
-				 $IGNORELIST -printf "$1/%P\n"`; do
+	for file in $( find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 $IGNORELIST -printf "$1/%P\n" ) ; do
 
 		if [ ! -L $file ]; then
-			if [ -z "`ls -A $SYDFDIR$file`" ] && 
-			   [ -z `trackdir has "$file"` ]; then
+			if [ -z "$( ls -A $SYDFDIR$file )" ] && 
+			   [ -z $( trackdir has "$file" ) ]; then
 				doas rmdir "$SYDFDIR$file"
 			else
 				cleanup $file
-				if [ -z "`ls -A $SYDFDIR$file`" ] && 
-				   [ -z `trackdir has "$file"` ]; then
+				if [ -z "$( ls -A $SYDFDIR$file )" ] && 
+				   [ -z $( trackdir has "$file" ) ]; then
 					doas rmdir "$SYDFDIR$file"
 				fi
 			fi
@@ -396,7 +396,7 @@ function ignore {
 # Create a snapshot of sydf directory inside /tmp/sydf and return its path
 function snapshot {
 
-	RANDSTR=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16 ; echo ''`
+	RANDSTR=$( head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16 ; echo '' )
 	TMPDIR="/tmp/sydf/snapshot_$RANDSTR"
 	doas mkdir -p $TMPDIR
 
@@ -418,7 +418,7 @@ function safelink {
 	TARGET=$2
 
 	if [ -e $TARGET ]; then
-		if [[ `prompt "'$TARGET' exists, replace?" Yn` == "no" ]]; then
+		if [[ $( prompt "'$TARGET' exists, replace?" Yn ) == "no" ]]; then
 			return
 		else
 			old "$TARGET"
@@ -438,25 +438,25 @@ function old {
 
 	if [ -e "$SYDFOLD/$FILEPATH" ]; then
 
-		MODIFY=`stat $SYDFOLD/$FILEPATH -c "%y" | sed -E \
-				"s/:/-/g; s/\.[0-9](.*)//g; s/ /./g;"`
+		MODIFY=$( stat $SYDFOLD/$FILEPATH -c "%y" | sed -E \
+				"s/:/-/g; s/\.[0-9](.*)//g; s/ /./g;" )
 
 		if [ -d "$SYDFOLD/$FILEPATH" ] || [ -d "/$FILEPATH" ]; then
 
-			OLDNAME="`basename $FILEPATH`.$MODIFY.sydf_conflict"
+			OLDNAME="$( basename $FILEPATH ).$MODIFY.sydf_conflict"
 			doas mv "$SYDFOLD/$FILEPATH" \
-			   "`dirname $SYDFOLD/$FILEPATH`/$OLDNAME"
+			   "$( dirname $SYDFOLD/$FILEPATH )/$OLDNAME"
 		
 		else
 
-			SHANEW=`shasum -b "/$FILEPATH" | cut -d " " -f 1`
-			SHAOLD=`shasum -b "$SYDFOLD/$FILEPATH" | cut -d " " -f 1`
+			SHANEW=$( shasum -b "/$FILEPATH" | cut -d " " -f 1 )
+			SHAOLD=$( shasum -b "$SYDFOLD/$FILEPATH" | cut -d " " -f 1 )
 
 			if [[ "$SHANEW" != "$SHAOLD" ]]; then
 
-				OLDNAME="`basename $FILEPATH`.$MODIFY.sydf_conflict"
+				OLDNAME="$( basename $FILEPATH ).$MODIFY.sydf_conflict"
 				doas mv "$SYDFOLD/$FILEPATH" \
-				   "`dirname $SYDFOLD/$FILEPATH`/$OLDNAME"
+				   "$( dirname $SYDFOLD/$FILEPATH )/$OLDNAME"
 
 			fi
 
@@ -464,7 +464,7 @@ function old {
 
 	fi
 
-	doas mkdir -p `dirname "$SYDFOLD/$FILEPATH"`
+	doas mkdir -p $( dirname "$SYDFOLD/$FILEPATH" )
 	doas mv "/$FILEPATH" "$SYDFOLD/$FILEPATH"
 
 }
@@ -485,8 +485,8 @@ function tamper {
 		tamper update
 	fi
 
-	SHANEW=`tar -cf - "$SYDFOLD" -P | shasum | cut -d ' ' -f 1`
-	SHAOLD=`grep "&" "$SYDFTRACKER" | sed "s/&//; s/#//"`
+	SHANEW=$( tar -cf - "$SYDFOLD" -P | shasum | cut -d ' ' -f 1 )
+	SHAOLD=$( grep "&" "$SYDFTRACKER" | sed "s/&//; s/#//" )
 	
 	if [[ $1 == "verify" ]]; then
 
@@ -513,16 +513,16 @@ function tamper {
 function hook {
 
 	local file
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
-				 $IGNORELIST -printf "$1/%P\n"`; do
+	for file in $( find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 $IGNORELIST -printf "$1/%P\n" ) ; do
 		
 		FILEPATH="$SYDFDIR$file"
-		DIR=`dirname "$file"`
+		DIR=$( dirname "$file" )
 
-		if [ -f $FILEPATH ] && [ -z `trackdir sub "$file"` ]; then
+		if [ -f $FILEPATH ] && [ -z $( trackdir sub "$file" ) ]; then
 
 			if [ -e "$DIR" ] && [ ! -d "$DIR" ]; then
-				if [[ `prompt "'$DIR' exists, replace?" Yn` == "no" ]]; then
+				if [[ $( prompt "'$DIR' exists, replace?" Yn ) == "no" ]]; then
 					return
 				else
 					old "$FILEPATH"
@@ -532,7 +532,7 @@ function hook {
 			directory add "$DIR"
 			safelink "$FILEPATH" "$file"
 
-		elif [ -z `trackdir has "$file"` ]; then
+		elif [ -z $( trackdir has "$file" ) ]; then
 
 			hook "$file"
 
@@ -557,13 +557,13 @@ function hook {
 # the sydf folder
 function unhook {
 
-	if [ ! -d "$SYDFDIR" ] || [ -z "`ls -A $SYDFDIR -I .sydf`" ]; then
+	if [ ! -d "$SYDFDIR" ] || [ -z "$( ls -A $SYDFDIR -I .sydf )" ]; then
 		return
 	fi
 
-	SNAPSHOT=`snapshot`
+	SNAPSHOT=$( snapshot )
 
-	if [[ `unhook_` -gt 0 ]]; then
+	if [[ $( unhook_ ) -gt 0 ]]; then
 
 		doas mv $SNAPSHOT/* "$SYDFDIR"
 		doas mv $SNAPSHOT/.sydf "$SYDFDIR"
@@ -586,14 +586,14 @@ function unhook_ {
 		count=0
 	fi
 
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
-				 $IGNORELIST -printf "$1/%P\n"`; do
+	for file in $( find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 $IGNORELIST -printf "$1/%P\n" ) ; do
 
 		if [ -L "/$file" ]; then
 			remove link "$file"
 			count=$(( $count + 1 ))
 		else
-			count=`unhook_ "$file" $count`
+			count=$( unhook_ "$file" $count )
 		fi
 
 	done
@@ -607,20 +607,20 @@ function unhook_ {
 # by hooking that now contain unmanaged data, they are not going to be deleted
 function revert {
 
-	if [ -z `tamper verify` ] &&
-	   [[ `prompt "some files might not be restored, proceed?" yN` == "no" ]];
+	if [ -z $( tamper verify ) ] &&
+	   [[ $( prompt "some files might not be restored, proceed?" yN ) == "no" ]];
 	then
 		return
 	fi
 
 	revert_
 
-	if [ ! -e "$SYDFOLD" ] || [ -z "`ls -A $SYDFOLD`" ]; then
+	if [ ! -e "$SYDFOLD" ] || [ -z "$( ls -A $SYDFOLD )" ]; then
 		return
 	fi
 
-	for file in `find "$SYDFOLD" ! \( -name "*.sydf_conflict" -prune \) \
-				 ! -path "$SYDFOLD" -type f -printf "$1/%P\n"`; do
+	for file in $( find "$SYDFOLD" ! \( -name "*.sydf_conflict" -prune \) \
+				 ! -path "$SYDFOLD" -type f -printf "$1/%P\n" ) ; do
 
 		if [ ! -e $file ]; then
 			doas cp -rp "$SYDFOLD$file" $file
@@ -637,17 +637,17 @@ function revert_ {
 	local file
 	local DIR
 
-	for file in `find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
-				 $IGNORELIST -printf "$1/%P\n"`; do
+	for file in $( find "$SYDFDIR/$1" -maxdepth 1 ! -path "$SYDFDIR/$1" \
+				 $IGNORELIST -printf "$1/%P\n" ) ; do
 		
-		DIR=`dirname "$file"`
+		DIR=$( dirname "$file" )
 
 		if [ -L "$file" ]; then
 
 			remove permanent "$file"
 			directory del "/$DIR"
 
-			if [ `trackdir has "$file"` ]; then
+			if [ $( trackdir has "$file" ) ]; then
 				doas mkdir -p "$file"
 			fi
 
