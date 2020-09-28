@@ -1,6 +1,6 @@
 [package]
 name = "sydf"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Filip Parag <filip@parag.rs>"]
 edition = "2018"
 
@@ -10,3 +10,4 @@ edition = "2018"
 quit = "1.1.0"
 shellexpand = "2.0.0"
 npath = { git = "https://github.com/gdouezangrard/npath" }
+clap = { version = "3.0.0-beta.2", features = ["yaml"] }
