@@ -12,3 +12,6 @@ shellexpand = "2.0.0"
 npath = { git = "https://github.com/gdouezangrard/npath" }
 yaml-rust = "0.4.4"
 clap = { version = "3.0.0-beta.2", features = ["yaml"] }
+
+[profile.release]
+opt-level = 3

@@ -2,21 +2,7 @@ use clap::{App, crate_version};
 use std::path::PathBuf;
 use std::vec::Vec;
 
-fn path(path: &str, abs: bool) -> PathBuf {
-    let mut p = PathBuf::from(
-        shellexpand::tilde(path).to_string()
-    );
-    if abs && !p.is_absolute() {
-        let mut ap: PathBuf;
-        match std::env::current_dir() {
-            Ok(pwd) => ap = pwd,
-            Err(err) => panic!("{}", err)
-        }
-        ap.push(p);
-        p = ap;
-    }
-    return npath::normalize(p);
-}
+mod filesystem;
 
 #[derive(Debug)]
 enum Cmd {
@@ -33,6 +19,7 @@ enum Cmd {
 struct Args {
     command:    Cmd,
     verbose:    bool,
+    homedir:    bool,
     recursive:  bool,
     keep:       bool,
     bundle:     PathBuf,
@@ -42,11 +29,17 @@ struct Args {
 
 fn main() {
 
+    if cfg!(windows) {
+        eprintln!("Windows is unsupported!");
+        quit::with_code(127);
+    }
+
     let mut arg_command:    Cmd     = Cmd::None;
     let mut arg_verbose:    bool    = false;
+    let mut arg_homedir:    bool    = false;
     let mut arg_recursive:  bool    = false;
     let mut arg_keep:       bool    = false;
-    let mut arg_bundle:     PathBuf = path("~/.local/share/sydf", true);
+    let mut arg_bundle:     PathBuf = filesystem::get_path("~/.local/share/sydf", true);
     let mut arg_sub:        Vec<PathBuf> = Vec::new();
     let mut arg_paths:      Vec<PathBuf> = Vec::new();
     
@@ -55,7 +48,11 @@ fn main() {
     let yaml = yaml_rust::YamlLoader::load_from_str(yaml_str.as_str());
     let yaml = match yaml {
         Ok(y) => y[0].clone(),
-        Err(error) => panic!("{}", error)
+        Err(error) => {
+            eprintln!("{}", error);
+            quit::with_code(127);
+            
+        }
     };
 
     let matches = App::from(&yaml).version(crate_version!()).get_matches();
@@ -64,19 +61,23 @@ fn main() {
         arg_verbose = true;
     }
 
+    if matches.is_present("keep-homedir") {
+        arg_homedir = true;
+    }
+
     if let Some(b) = matches.value_of("bundle") {
-        arg_bundle = path(&b, true);
+        arg_bundle = filesystem::get_path(&b, true);
     }
 
     if let Some(s) = matches.value_of("sub-bundle") {
-        arg_bundle.push(path(&s, false));
+        arg_bundle.push(filesystem::get_path(&s, false));
     }
 
     if let Some(ref matches) = matches.subcommand_matches("add") {
         arg_command = Cmd::Add;
         if let Some(paths) = matches.values_of("path") {
             for p in paths {
-                arg_paths.push(path(&p, true));
+                arg_paths.push(filesystem::get_path(&p, true));
             }
         }
     }
@@ -85,7 +86,7 @@ fn main() {
         arg_command = Cmd::Remove;
         if let Some(paths) = matches.values_of("path") {
             for p in paths {
-                arg_paths.push(path(&p, true));
+                arg_paths.push(filesystem::get_path(&p, true));
             }
         }
     }
@@ -94,7 +95,7 @@ fn main() {
         arg_command = Cmd::Hook;
         if let Some(subs) = matches.values_of("sub-bundle") {
             for s in subs {
-                arg_sub.push(path(&s, false));
+                arg_sub.push(filesystem::get_path(&s, false));
             }
         }
         if matches.is_present("recursive") {
@@ -106,7 +107,7 @@ fn main() {
         arg_command = Cmd::Unhook;
         if let Some(subs) = matches.values_of("sub-bundle") {
             for s in subs {
-                arg_sub.push(path(&s, false));
+                arg_sub.push(filesystem::get_path(&s, false));
             }
         }
         if matches.is_present("recursive") {
@@ -127,6 +128,7 @@ fn main() {
     let args = Args {
         command:    arg_command,
         verbose:    arg_verbose,
+        homedir:    arg_homedir,
         recursive:  arg_recursive,
         keep:       arg_keep,
         bundle:     arg_bundle,
@@ -135,6 +137,8 @@ fn main() {
     };
 
     println!("{:?}", args);
+
+    // init bundle
 
     match args.command {
         Cmd::Add => {

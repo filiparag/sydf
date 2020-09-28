@@ -17,6 +17,10 @@ args:
       value_name: NAME
       about: "Use sub-bundle"
       takes_value: true
+  - keep-homedir:
+      short: H
+      long: keep-homedir
+      about: "Keep real path of user's home directory"
   - debug:
       short: d
       long: debug
