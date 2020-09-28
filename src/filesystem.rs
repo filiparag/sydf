@@ -1,12 +1,15 @@
 use std::path::PathBuf;
 use std::fs;
 
+const BACKUP_SUBDIR: &str = ".sydf/backup";
+
 #[derive(Debug)]
-pub enum Type {
+pub enum FileType {
     File,
     Directory,
     Symlink,
-    Other
+    Other,
+    Missing
 }
 
 pub fn get_path(path: &str, abs: bool) -> PathBuf {
@@ -52,18 +55,19 @@ impl GenericPath for std::path::PathBuf {
 }
 
 
-pub fn get_type(path: &PathBuf) -> Type {
+pub fn get_type(path: &PathBuf) -> FileType {
+    if path.exists() {
     match fs::symlink_metadata(path) {
         Ok(attr) => {
             println!("{:?}", attr.file_type());
             if attr.is_dir() {
-                return Type::Directory
+                    return FileType::Directory
             } else if attr.is_file() {
-                return Type::File
+                    return FileType::File
             } else if attr.file_type().is_symlink() {
-                return Type::Symlink
+                    return FileType::Symlink
             } else {
-                return Type::Other
+                    return FileType::Other
             }
         }
         Err(err) => {
@@ -71,6 +75,9 @@ pub fn get_type(path: &PathBuf) -> Type {
             quit::with_code(254);
         }
     }
+    } else {
+        return FileType::Missing
+}
 }
 
 pub fn create_dir(path: &PathBuf) {
@@ -109,9 +116,27 @@ fn get_target(source: &PathBuf, bundle: &PathBuf, homedir: bool) -> (PathBuf, Pa
     return (target, dir)
 }
 
+fn get_backup_dir(path: &PathBuf, bundle: &PathBuf, parent: bool) -> PathBuf {
+    let mut dir = bundle.clone();
+    dir.push(PathBuf::from(BACKUP_SUBDIR));
+    dir.push(
+        match path.strip_prefix("/") {
+            Ok(p) => match parent {
+                true => p.parent().unwrap(),
+                false => p
+            },
+            Err(e) => {
+                eprintln!("{}", e);
+                quit::with_code(2)
+            }
+        }
+    );
+    return dir;
+}
+
 pub fn add(source: &PathBuf, bundle: &PathBuf, homedir: bool) {
     let (target, dir) = get_target(source, bundle, homedir);
-    println!("mkdir '{}'", dir.display());
+    println!("mkdir -p '{}'", dir.display());
     println!("mv '{}' '{}'", source.display(), target.display());
     println!("ln -s '{}' '{}'", target.display(), source.display());
 }
@@ -124,4 +149,15 @@ pub fn rm(source: &PathBuf, bundle: &PathBuf, homedir: bool, keep: bool) {
     } else {
         println!("mv '{}' '{}'", target.display(), source.display());
     }
+}
+
+pub fn backup(path: &PathBuf, bundle: &PathBuf) {
+    let dir = get_backup_dir(path, bundle, true);
+    println!("mkdir -p '{}'", dir.display());
+    println!("mv '{}' '{}'", path.display(), dir.display());
+}
+
+pub fn restore(path: &PathBuf, bundle: &PathBuf) {
+    let dir = get_backup_dir(path, bundle, false);
+    println!("mv '{}' '{}'", dir.display(), path.display());
 }
