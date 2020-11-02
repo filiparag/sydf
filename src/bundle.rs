@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::fs::{read_to_string, write, create_dir_all};
 use serde_derive::{Serialize, Deserialize};
 
-use crate::path::{norm_from};
+use crate::path::{norm_from, to_string};
 
 #[derive(Serialize, Deserialize, Debug)]
 struct BundleFileAbout {
@@ -107,7 +107,7 @@ impl Bundle {
         bundlefile.push(SYDFDIR);
         create_dir_all(&bundlefile)?;
         bundlefile.push(BUNDLE);
-        write(bundlefile.as_path().display().to_string(), data)?;
+        write(to_string(&bundlefile), data)?;
         Ok(())
     }
 

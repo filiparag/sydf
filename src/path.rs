@@ -40,3 +40,7 @@ pub fn real(path: &PathBuf) -> PathBuf {
         path.clone()
     }
 }
+
+pub fn to_string(path: &PathBuf) -> String {
+    path.as_path().display().to_string()
+}
