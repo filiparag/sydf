@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use std::fs::{read_to_string, write, create_dir_all};
 use serde_derive::{Serialize, Deserialize};
 
+use crate::path::{norm_from};
+
 #[derive(Serialize, Deserialize, Debug)]
 struct BundleFileAbout {
     name: String,
@@ -56,11 +58,15 @@ impl From<toml::de::Error> for BundleError {
     }
 }
 
+const ROOTDIR: &str = "/";
+const SYDFDIR: &str = ".sydf";
+const BUNDLE: &str = "bundle.toml";
+
 impl Bundle {
 
     // TODO: replace hardcoded values
     pub fn new(path: &str) -> Result<Bundle, BundleError> {
-        let path = PathBuf::from(path);
+        let abspath = norm_from(path);
         let bundle = Bundle {
             values: BundleFile {
                 about: BundleFileAbout {
@@ -70,26 +76,27 @@ impl Bundle {
                     url: "git::kernel.org".to_string()
                 },
                 config: BundleFileConfig {
-                    root: PathBuf::from("/"),
+                    root: PathBuf::from(ROOTDIR),
                     ignore: vec![],
                     directories: vec![],
                     modules: vec![]
                 }
             },
-            location: path
+            location: abspath
         };
         Ok(bundle)
     }
 
     pub fn from(path: &str) -> Result<Bundle, BundleError> {
-        let path = PathBuf::from(path);
-        let mut bundlefile = path.clone();
-        bundlefile.push(".sydf/bundle.toml");
+        let abspath = norm_from(path);
+        let mut bundlefile = abspath.clone();
+        bundlefile.push(SYDFDIR);
+        bundlefile.push(BUNDLE);
         let file = read_to_string(&bundlefile)?;
         let values = toml::from_str(&file)?;
         let bundle = Bundle {
             values: values,
-            location: path
+            location: abspath
         };
         Ok(bundle)
     }
@@ -97,9 +104,9 @@ impl Bundle {
     pub fn save(&self) -> Result<(), BundleError> {
         let data = toml::to_string_pretty(&self.values)?;
         let mut bundlefile = self.location.clone();
-        bundlefile.push(".sydf");
+        bundlefile.push(SYDFDIR);
         create_dir_all(&bundlefile)?;
-        bundlefile.push("bundle.toml");
+        bundlefile.push(BUNDLE);
         write(bundlefile.as_path().display().to_string(), data)?;
         Ok(())
     }
